@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../study_engine.dart';
+import '../app_theme.dart';
 
 class ReportScreen extends StatelessWidget {
   final StudyEngine engine;
   final String subject;
-  const ReportScreen({super.key, required this.engine, required this.subject});
+        ReportScreen({super.key, required this.engine, required this.subject});
 
   @override
   Widget build(BuildContext context) {
@@ -12,15 +13,15 @@ class ReportScreen extends StatelessWidget {
     final sub = e.getSubject(subject);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0f0f1a),
+      backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0f0f1a),
+        backgroundColor: AppTheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFFe8e8f0)),
+          icon: Icon(Icons.arrow_back, color: AppTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('📊 学习报告', style: TextStyle(color: Color(0xFFe8e8f0), fontWeight: FontWeight.w700)),
+        title:       Text('📊 学习报告', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -44,13 +45,13 @@ class ReportScreen extends StatelessWidget {
                 '${h.score}分 +${h.xpGain}XP',
               )).toList(),
             ),
-          const SizedBox(height: 16),
+                SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6c5ce7),
+                backgroundColor: AppTheme.accent,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -72,16 +73,16 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
+      padding:       EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1a1a2e),
-        border: Border.all(color: const Color(0xFF2a2a3e)),
+        color: AppTheme.surfaceLight,
+        border: Border.all(color: AppTheme.border),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFFa29bfe))),
+          Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.accentGlow)),
           const SizedBox(height: 8),
           ...children,
         ],
@@ -92,12 +93,12 @@ class _Card extends StatelessWidget {
 
 Widget _Row(String label, String value, {Color? color}) {
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+    padding:       EdgeInsets.symmetric(vertical: 4),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF8888aa))),
-        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? const Color(0xFFe8e8f0))),
+        Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? AppTheme.textPrimary)),
       ],
     ),
   );

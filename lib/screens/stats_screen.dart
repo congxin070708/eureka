@@ -6,7 +6,7 @@ import '../app_theme.dart';
 class StatsScreen extends StatefulWidget {
   final StudyEngine engine;
   final String subject;
-  const StatsScreen({super.key, required this.engine, required this.subject});
+        StatsScreen({super.key, required this.engine, required this.subject});
 
   @override
   State<StatsScreen> createState() => _StatsScreenState();
@@ -36,7 +36,7 @@ class _StatsScreenState extends State<StatsScreen>
       appBar: AppBar(
         backgroundColor: AppTheme.bg,
         elevation: 0,
-        title: const Text('学习中心', style: TextStyle(color: Color(0xFFe8e8f0))),
+        title:       Text('学习中心', style: TextStyle(color: AppTheme.textPrimary)),
         bottom: TabBar(
           controller: _tabCtrl,
           indicatorColor: AppTheme.accent,
@@ -75,7 +75,7 @@ class _StatsScreenState extends State<StatsScreen>
           _StatCard(
             child: _buildSummary(e),
           ),
-          const SizedBox(height: 16),
+                SizedBox(height: 16),
 
           // 等级卡片
           _StatCard(
@@ -85,8 +85,8 @@ class _StatsScreenState extends State<StatsScreen>
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6c5ce7), Color(0xFF8b5cf6)],
+                    gradient: LinearGradient(
+                      colors: [AppTheme.accent, AppTheme.accentLight],
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -98,32 +98,32 @@ class _StatsScreenState extends State<StatsScreen>
                             color: Colors.white)),
                   ),
                 ),
-                const SizedBox(width: 16),
+                      SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('等级 ${e.level}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFFe8e8f0))),
-                      const SizedBox(height: 6),
+                              color: AppTheme.textPrimary)),
+                            SizedBox(height: 6),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: e.xpPercent / 100.0,
                           backgroundColor: AppTheme.border,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF6c5ce7)),
+                          valueColor:       AlwaysStoppedAnimation<Color>(
+                              AppTheme.accent),
                           minHeight: 6,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                            SizedBox(height: 4),
                       Text(
                         '${e.xp} / ${e.xpNext} XP  (${e.xpPercent}%)',
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF8888aa)),
+                        style: TextStyle(
+                            fontSize: 11, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),
@@ -135,11 +135,11 @@ class _StatsScreenState extends State<StatsScreen>
 
           // 今日统计
           _SectionTitle('今日学习'),
-          const SizedBox(height: 8),
+                SizedBox(height: 8),
           Row(
             children: [
               _MiniStat(Icons.timer, '${today.minutes}分钟', '学习时长',
-                  const Color(0xFF6c5ce7)),
+                  AppTheme.accent),
               const SizedBox(width: 8),
               _MiniStat(Icons.quiz, '${today.questions}题', '答题数',
                   const Color(0xFFf97316)),
@@ -157,9 +157,9 @@ class _StatsScreenState extends State<StatsScreen>
             children: [
               _MiniStat(Icons.stars, '${e.totalXp}XP', '总经验',
                   const Color(0xFFeab308)),
-              const SizedBox(width: 8),
+                    SizedBox(width: 8),
               _MiniStat(Icons.auto_awesome, '${e.studyDays}天', '学习天数',
-                  const Color(0xFF6c5ce7)),
+                  AppTheme.accent),
               const SizedBox(width: 8),
               _MiniStat(Icons.local_fire_department, '🔥${e.streak}', '连续',
                   const Color(0xFFef4444)),
@@ -212,35 +212,35 @@ class _StatsScreenState extends State<StatsScreen>
       children: [
         Row(
           children: [
-            const Text('📅 今日',
+                  Text('📅 今日',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFe8e8f0))),
-            const Spacer(),
+                    color: AppTheme.textPrimary)),
+                  Spacer(),
             Text(
                 '${today.questions}题 · ${today.accuracy}%正确率 · ${today.minutes}分钟',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8888aa))),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('📅 本周',
+                  Text('📅 本周',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFe8e8f0))),
-            const Spacer(),
+                    color: AppTheme.textPrimary)),
+                  Spacer(),
             Text(
                 '$weekQuestions题 · ${weekQuestions > 0 ? (weekCorrect * 100 ~/ weekQuestions) : 0}%正确率',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8888aa))),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ],
         ),
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(10),
+          padding:       EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: AppTheme.accent.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
@@ -248,11 +248,11 @@ class _StatsScreenState extends State<StatsScreen>
           child: Row(
             children: [
               const Icon(Icons.lightbulb, size: 14, color: Color(0xFFeab308)),
-              const SizedBox(width: 6),
+                    SizedBox(width: 6),
               Expanded(
                 child: Text(advice,
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFFe8e8f0))),
+                    style: TextStyle(
+                        fontSize: 12, color: AppTheme.textPrimary)),
               ),
             ],
           ),
@@ -271,11 +271,11 @@ class _StatsScreenState extends State<StatsScreen>
           children: [
             const Text('📌', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
-            const Text('还没有收藏',
-                style: TextStyle(fontSize: 16, color: Color(0xFF8888aa))),
+                  Text('还没有收藏',
+                style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
             const SizedBox(height: 8),
-            const Text('在知识点讲解中点击收藏按钮即可添加',
-                style: TextStyle(fontSize: 13, color: Color(0xFF555577))),
+                  Text('在知识点讲解中点击收藏按钮即可添加',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ],
         ),
       );
@@ -295,7 +295,7 @@ class _StatsScreenState extends State<StatsScreen>
               color: const Color(0xFFef4444).withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.delete, color: Color(0xFFef4444)),
+            child:       Icon(Icons.delete, color: Color(0xFFef4444)),
           ),
           onDismissed: (_) {
             setState(() => e.removeBookmark(i));
@@ -304,9 +304,9 @@ class _StatsScreenState extends State<StatsScreen>
             color: AppTheme.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: AppTheme.border),
+              side: BorderSide(color: AppTheme.border),
             ),
-            margin: const EdgeInsets.only(bottom: 8),
+            margin:       EdgeInsets.only(bottom: 8),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
@@ -316,7 +316,7 @@ class _StatsScreenState extends State<StatsScreen>
                     backgroundColor: AppTheme.bg,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: AppTheme.border),
+                      side: BorderSide(color: AppTheme.border),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -327,37 +327,37 @@ class _StatsScreenState extends State<StatsScreen>
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(
+                                padding:       EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: AppTheme.accent.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(b.subject,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
                                         color: AppTheme.accentLight)),
                               ),
-                              const Spacer(),
+                                    Spacer(),
                               IconButton(
-                                icon: const Icon(Icons.close,
-                                    size: 18, color: Color(0xFF8888aa)),
+                                icon: Icon(Icons.close,
+                                    size: 18, color: AppTheme.textSecondary),
                                 onPressed: () => Navigator.pop(context),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                                SizedBox(height: 12),
                           Text(b.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFFe8e8f0))),
-                          const SizedBox(height: 8),
+                                  color: AppTheme.textPrimary)),
+                                SizedBox(height: 8),
                           SingleChildScrollView(
                             child: SelectableText(b.content,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 14,
-                                    color: Color(0xFF8888aa),
+                                    color: AppTheme.textSecondary,
                                     height: 1.6)),
                           ),
                           const SizedBox(height: 16),
@@ -375,38 +375,38 @@ class _StatsScreenState extends State<StatsScreen>
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding:       EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppTheme.accent.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(b.subject,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11, color: AppTheme.accentLight)),
                         ),
-                        const Spacer(),
+                              Spacer(),
                         Text(
                           b.time.length >= 16 ? b.time.substring(11, 16) : '',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF555577)),
+                          style: TextStyle(
+                              fontSize: 11, color: AppTheme.textSecondary),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                          SizedBox(height: 8),
                     Text(b.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFe8e8f0))),
+                            color: AppTheme.textPrimary)),
                     if (b.content.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                            SizedBox(height: 4),
                       Text(b.content,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF8888aa),
+                              color: AppTheme.textSecondary,
                               height: 1.5)),
                     ],
                   ],
@@ -424,7 +424,7 @@ class _StatsScreenState extends State<StatsScreen>
     final achievements = _getAchievements(e);
     return GridView.builder(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate:       SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
@@ -450,7 +450,7 @@ class _StatsScreenState extends State<StatsScreen>
             children: [
               Text(unlocked ? a.icon : '🔒',
                   style: const TextStyle(fontSize: 28)),
-              const SizedBox(height: 6),
+                    SizedBox(height: 6),
               Text(
                 a.name,
                 textAlign: TextAlign.center,
@@ -458,8 +458,8 @@ class _StatsScreenState extends State<StatsScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: unlocked
-                      ? const Color(0xFFe8e8f0)
-                      : const Color(0xFF555577),
+                      ? AppTheme.textPrimary
+                      : AppTheme.textSecondary,
                 ),
               ),
             ],
@@ -497,7 +497,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding:       EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(14),
@@ -510,19 +510,19 @@ class _StatCard extends StatelessWidget {
 
 class _SectionTitle extends StatelessWidget {
   final String text;
-  const _SectionTitle(this.text);
+        _SectionTitle(this.text);
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Container(width: 3, height: 16, color: AppTheme.accent),
-        const SizedBox(width: 8),
+              SizedBox(width: 8),
         Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFFe8e8f0))),
+                color: AppTheme.textPrimary)),
       ],
     );
   }
@@ -539,7 +539,7 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding:       EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
@@ -548,12 +548,12 @@ class _MiniStat extends StatelessWidget {
         child: Column(
           children: [
             Icon(icon, color: color, size: 22),
-            const SizedBox(height: 6),
+                  SizedBox(height: 6),
             Text(value,
                 style: TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w700, color: color)),
             Text(label,
-                style: const TextStyle(fontSize: 10, color: Color(0xFF8888aa))),
+                style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
           ],
         ),
       ),
@@ -569,17 +569,17 @@ class _StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding:       EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF8888aa))),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFe8e8f0))),
+                  color: AppTheme.textPrimary)),
         ],
       ),
     );

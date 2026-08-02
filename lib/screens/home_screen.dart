@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../study_engine.dart';
 import '../api_service.dart';
 import '../app_theme.dart';
@@ -71,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _saving = false;
       _saveMsg = '✅ 已保存';
     });
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(      Duration(seconds: 2), () {
       if (mounted) setState(() => _saveMsg = '');
     });
   }
@@ -95,10 +96,10 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:       EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6c5ce7), Color(0xFF8b5cf6)],
+                  gradient: LinearGradient(
+                    colors: [AppTheme.accent, AppTheme.accentLight],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -111,12 +112,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+                    SizedBox(width: 6),
               Text(
                 '${e.xp}/${e.xpNext}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF8888aa),
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
@@ -127,9 +128,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               appVersion,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF8888aa),
+                color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -157,23 +158,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('📖 ${e.studyMode}模式'),
-                  backgroundColor: const Color(0xFF6c5ce7),
+                  backgroundColor: AppTheme.accent,
                   duration: const Duration(seconds: 1),
                 ),
               );
             },
             child: Container(
               margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding:       EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF6c5ce7).withValues(alpha: 0.5)),
+                border: Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 e.studyMode,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFFa78bfa),
+                  color: AppTheme.accentLight,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -198,21 +199,21 @@ class _HomeScreenState extends State<HomeScreen> {
           // ── 保存按钮 ──
           IconButton(
             icon: _saving
-                ? const SizedBox(
+                ?       SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF8888aa),
+                      color: AppTheme.textSecondary,
                     ),
                   )
-                : const Icon(Icons.save, color: Color(0xFF8888aa), size: 20),
+                : Icon(Icons.save, color: AppTheme.textSecondary, size: 20),
             tooltip: '保存',
             onPressed: _saving ? null : _saveEngine,
           ),
           // ── 统计按钮 ──
           IconButton(
-            icon: const Icon(Icons.bar_chart, color: Color(0xFF8888aa), size: 20),
+            icon: Icon(Icons.bar_chart, color: AppTheme.textSecondary, size: 20),
             tooltip: '学习中心',
             onPressed: () {
               Navigator.push(
@@ -230,9 +231,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // ── 设置按钮 ──
           IconButton(
-            icon: const Icon(Icons.settings, color: Color(0xFF8888aa), size: 20),
+            icon: Icon(Icons.settings, color: AppTheme.textSecondary, size: 20),
             tooltip: '设置',
             onPressed: () => _showSettings(context),
+          ),
+          // ── 主题切换 ──
+          IconButton(
+            icon: Icon(
+              AppTheme.isDark ? Icons.light_mode : Icons.dark_mode,
+              color: AppTheme.textSecondary,
+              size: 20,
+            ),
+            tooltip: AppTheme.isDark ? '切换为白色主题' : '切换为黑色主题',
+            onPressed: _toggleTheme,
           ),
         ],
       ),
@@ -250,10 +261,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(height: 8),
+                  SizedBox(height: 8),
             ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFa29bfe), Color(0xFF6c5ce7)],
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [AppTheme.accentGlow, AppTheme.accent],
               ).createShader(bounds),
               child: const Text(
                 '元启 AI 学伴',
@@ -265,9 +276,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+                  Text(
               '语音输入 · 真AI教学 · 游戏化学习',
-              style: TextStyle(fontSize: 13, color: Color(0xFF8888aa)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 20),
 
@@ -287,10 +298,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: OutlinedButton.icon(
                 onPressed: _showAddSubjectDialog,
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('添加新学科'),
+                label:       Text('添加新学科'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF8888aa),
-                  side: const BorderSide(color: Color(0xFF2a2a3e)),
+                  foregroundColor: AppTheme.textSecondary,
+                  side: BorderSide(color: AppTheme.border),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -313,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final today = e.todayRecord;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(16),
+      padding:       EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -334,14 +345,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {});
                       },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:       EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     gradient: checkedIn
                         ? null
-                        : const LinearGradient(
-                            colors: [Color(0xFF6c5ce7), Color(0xFF8b5cf6)],
+                        : LinearGradient(
+                            colors: [AppTheme.accent, AppTheme.accentLight],
                           ),
-                    color: checkedIn ? const Color(0xFF1a1a2e) : null,
+                    color: checkedIn ? AppTheme.surfaceLight : null,
                     borderRadius: BorderRadius.circular(10),
                     border: checkedIn
                         ? Border.all(color: const Color(0xFF22c55e).withValues(alpha: 0.3))
@@ -387,33 +398,33 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const Spacer(),
+                              Spacer(),
                         Text(
                           'Lv.${e.level}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF6c5ce7),
+                            color: AppTheme.accent,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                              SizedBox(width: 4),
                         Text(
                           '${e.xp}/${e.xpNext} XP',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF8888aa),
+                            color: AppTheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                          SizedBox(height: 6),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(3),
                       child: LinearProgressIndicator(
                         value: e.xpPercent / 100.0,
                         backgroundColor: AppTheme.border,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF6c5ce7)),
+                        valueColor:       AlwaysStoppedAnimation<Color>(
+                            AppTheme.accent),
                         minHeight: 5,
                       ),
                     ),
@@ -422,13 +433,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+                SizedBox(height: 14),
 
           // ── 今日统计 ──
           Row(
             children: [
               _buildMiniStat(Icons.timer, '${today.minutes}分钟', '今日学习',
-                  const Color(0xFF6c5ce7)),
+                  AppTheme.accent),
               const SizedBox(width: 8),
               _buildMiniStat(Icons.quiz, '${today.questions}题', '答题',
                   const Color(0xFFf97316)),
@@ -455,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           Icon(icon, size: 18, color: color),
-          const SizedBox(height: 4),
+                SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
@@ -466,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Text(
             label,
-            style: const TextStyle(fontSize: 9, color: Color(0xFF8888aa)),
+            style: TextStyle(fontSize: 9, color: AppTheme.textSecondary),
           ),
         ],
       ),
@@ -490,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
       spacing: 6,
       runSpacing: 6,
       children: badges.map((b) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding:       EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: AppTheme.accent.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
@@ -500,10 +511,10 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(b.value, size: 12, color: AppTheme.accentLight),
-            const SizedBox(width: 4),
+                  SizedBox(width: 4),
             Text(
               b.key,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 color: AppTheme.accentLight,
                 fontWeight: FontWeight.w600,
@@ -521,7 +532,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (subjects.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 24),
-        padding: const EdgeInsets.all(24),
+        padding:       EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(16),
@@ -529,27 +540,27 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           children: [
-            const Icon(Icons.menu_book, size: 40, color: Color(0xFF555577)),
+            Icon(Icons.menu_book, size: 40, color: AppTheme.textSecondary),
             const SizedBox(height: 8),
-            const Text(
+                  Text(
               '还没有学科',
               style: TextStyle(
                 fontSize: 15,
-                color: Color(0xFF8888aa),
+                color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+                  Text(
               '点击下方按钮添加你的第一个学科',
-              style: TextStyle(fontSize: 12, color: Color(0xFF555577)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
           ],
         ),
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding:       EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -561,18 +572,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: AppTheme.accent,
               ),
               const SizedBox(width: 8),
-              const Text(
+                    Text(
                 '我的书架',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFFe8e8f0),
+                  color: AppTheme.textPrimary,
                 ),
               ),
-              const Spacer(),
+                    Spacer(),
               Text(
                 '${subjects.length} 个学科',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8888aa)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ],
           ),
@@ -627,18 +638,18 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text(
+        title:       Text(
           '删除学科',
-          style: TextStyle(color: Color(0xFFe8e8f0)),
+          style: TextStyle(color: AppTheme.textPrimary),
         ),
         content: Text(
           '确定要删除「$name」吗？\n该学科的学习记录将被清除。',
-          style: const TextStyle(color: Color(0xFF8888aa)),
+          style: TextStyle(color: AppTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Color(0xFF8888aa))),
+            child:       Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -668,17 +679,17 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text(
+        title:       Text(
           '添加新学科',
-          style: TextStyle(color: Color(0xFFe8e8f0)),
+          style: TextStyle(color: AppTheme.textPrimary),
         ),
         content: TextField(
           controller: subjectCtrl,
           autofocus: true,
-          style: const TextStyle(color: Color(0xFFe8e8f0)),
-          decoration: const InputDecoration(
+          style: TextStyle(color: AppTheme.textPrimary),
+          decoration:       InputDecoration(
             hintText: '如：高等数学、Python编程',
-            hintStyle: TextStyle(color: Color(0xFF555577)),
+            hintStyle: TextStyle(color: AppTheme.textSecondary),
             border: OutlineInputBorder(),
           ),
           onSubmitted: (v) {
@@ -695,7 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Color(0xFF8888aa))),
+            child:       Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -709,11 +720,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 _saveEngineSync();
               }
             },
-            child: const Text('添加', style: TextStyle(color: AppTheme.accentLight)),
+            child:       Text('添加', style: TextStyle(color: AppTheme.accentLight)),
           ),
         ],
       ),
     );
+  }
+
+  /// 切换明/暗主题并持久化
+  Future<void> _toggleTheme() async {
+    setState(() => AppTheme.isDark = !AppTheme.isDark);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_theme', AppTheme.isDark);
   }
 
   void _showSettings(BuildContext context) {
@@ -722,35 +740,35 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1a1a2e),
-          title: const Text('设置', style: TextStyle(color: Color(0xFFe8e8f0))),
+          backgroundColor: AppTheme.surfaceLight,
+          title:       Text('设置', style: TextStyle(color: AppTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: controller,
-                style: const TextStyle(color: Color(0xFFe8e8f0)),
-                decoration: const InputDecoration(
+                style: TextStyle(color: AppTheme.textPrimary),
+                decoration:       InputDecoration(
                   labelText: 'API Key',
                   hintText: 'sk-...',
-                  labelStyle: TextStyle(color: Color(0xFF8888aa)),
+                  labelStyle: TextStyle(color: AppTheme.textSecondary),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               // ── 后端选择 ──
-              const Text('后端选择', style: TextStyle(color: Color(0xFF8888aa), fontSize: 12)),
-              const SizedBox(height: 6),
+                    Text('后端选择', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                    SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: ApiService.backend,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: const Color(0xFF2a2a3e),
+                  fillColor: AppTheme.border,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding:       EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                dropdownColor: const Color(0xFF1a1a2e),
-                style: const TextStyle(color: Color(0xFFe8e8f0), fontSize: 13),
+                dropdownColor: AppTheme.surfaceLight,
+                style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                 items: const [
                   DropdownMenuItem(value: 'deepseek', child: Text('DeepSeek（默认内置Key）')),
                   DropdownMenuItem(value: 'bailian', child: Text('百炼 Qwen（需填Key）')),
@@ -760,36 +778,36 @@ class _HomeScreenState extends State<HomeScreen> {
                 onChanged: (v) => setDialogState(() {}),
               ),
               if (ApiService.backend == 'bailian') ...[
-                const SizedBox(height: 8),
+                      SizedBox(height: 8),
                 TextField(
                   controller: TextEditingController(text: ApiService.bailianKey),
-                  style: const TextStyle(color: Color(0xFFe8e8f0)),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppTheme.textPrimary),
+                  decoration:       InputDecoration(
                     labelText: '百炼 API Key',
                     hintText: 'sk-...',
-                    labelStyle: TextStyle(color: Color(0xFF8888aa)),
+                    labelStyle: TextStyle(color: AppTheme.textSecondary),
                     border: OutlineInputBorder(),
                   ),
                 ),
               ],
-              const SizedBox(height: 8),
+                    SizedBox(height: 8),
               Text(
                 _backendHint(ApiService.backend),
-                style: const TextStyle(color: Color(0xFF8888aa), fontSize: 11),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消', style: TextStyle(color: Color(0xFF8888aa))),
+              child:       Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () {
                 ApiService.apiKey = controller.text.trim();
                 Navigator.pop(ctx);
               },
-              child: const Text('保存', style: TextStyle(color: Color(0xFF6c5ce7))),
+              child:       Text('保存', style: TextStyle(color: AppTheme.accent)),
             ),
           ],
         ),
@@ -819,7 +837,7 @@ class _SubjectCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  const _SubjectCard({
+        _SubjectCard({
     required this.name,
     this.qCount = 0,
     this.accuracy = 0,
@@ -831,7 +849,7 @@ class _SubjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 根据学科名生成颜色
     final colors = [
-      const Color(0xFF6c5ce7),
+      AppTheme.accent,
       const Color(0xFFf97316),
       const Color(0xFF22c55e),
       const Color(0xFFeab308),
@@ -874,25 +892,25 @@ class _SubjectCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+                  SizedBox(height: 8),
             // 学科名
             Text(
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFe8e8f0),
+                color: AppTheme.textPrimary,
               ),
             ),
-            const SizedBox(height: 4),
+                  SizedBox(height: 4),
             // 统计
             Text(
               '$qCount 题 · $accuracy%',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF8888aa),
+                color: AppTheme.textSecondary,
               ),
             ),
           ],

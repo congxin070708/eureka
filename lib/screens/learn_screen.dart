@@ -640,7 +640,7 @@ class _LearnScreenState extends State<LearnScreen> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(      Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
@@ -677,28 +677,28 @@ class _LearnScreenState extends State<LearnScreen> {
           final sub = widget.engine.getSubject(widget.subject.trim());
           final kps = sub.knowledgePoints;
           return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding:       EdgeInsets.fromLTRB(16, 12, 16, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.science, color: Color(0xFF6c5ce7), size: 18),
+                  children: [
+                    Icon(Icons.science, color: AppTheme.accent, size: 18),
                     SizedBox(width: 8),
                     Text('🧪 演示模式 · 模拟答题',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFFe8e8f0))),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text('不调AI,直接模拟答对/答错,看掌握度如何变化',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF8888aa))),
+                      Text('不调AI,直接模拟答对/答错,看掌握度如何变化',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                 const SizedBox(height: 12),
                 if (kps.isEmpty)
-                  const Padding(
+                        Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
                     child: Text('还没有知识点\n先学一个话题(输入话题名→讲解→出题)才会生成',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF8888aa), height: 1.6)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.6)),
                   )
                 else
                   Flexible(
@@ -714,12 +714,12 @@ class _LearnScreenState extends State<LearnScreen> {
                             ? '✅ 已掌握'
                             : '⏳ ${pct}%/${gatePct}%';
                         return Container(
-                          padding: const EdgeInsets.all(10),
+                          padding:       EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceLight,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                                color: kp.isMastered ? const Color(0xFF22c55e).withValues(alpha: 0.4) : AppTheme.border),
+                                color: kp.isMastered ?       Color(0xFF22c55e).withValues(alpha: 0.4) : AppTheme.border),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,12 +729,12 @@ class _LearnScreenState extends State<LearnScreen> {
                                   Expanded(
                                     child: Text(
                                       '${kp.name}  $status',
-                                      style: const TextStyle(fontSize: 13, color: Color(0xFFe8e8f0)),
+                                      style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                               // 掌握度进度条
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(3),
@@ -743,7 +743,7 @@ class _LearnScreenState extends State<LearnScreen> {
                                   minHeight: 4,
                                   backgroundColor: AppTheme.border,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    kp.isMastered ? const Color(0xFF22c55e) : const Color(0xFF6c5ce7)),
+                                    kp.isMastered ?       Color(0xFF22c55e) : AppTheme.accent),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -758,8 +758,8 @@ class _LearnScreenState extends State<LearnScreen> {
                                     kp.recordAttempt(false);
                                     setSheetState(() {});
                                   }),
-                                  const SizedBox(width: 6),
-                                  _demoBtn('重置', const Color(0xFF8888aa), () {
+                                        SizedBox(width: 6),
+                                  _demoBtn('重置', AppTheme.textSecondary, () {
                                     kp.attempts.clear();
                                     kp.consecutiveCorrect = 0;
                                     kp.consecutiveWrong = 0;
@@ -816,9 +816,9 @@ class _LearnScreenState extends State<LearnScreen> {
     widget.engine.addBookmark(widget.subject, title, content);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+              SnackBar(
           content: Text('📌 已收藏'),
-          backgroundColor: Color(0xFF6c5ce7),
+          backgroundColor: AppTheme.accent,
           duration: Duration(seconds: 1),
         ),
       );
@@ -839,23 +839,23 @@ class _LearnScreenState extends State<LearnScreen> {
         actions: [
           // 保存按钮
           IconButton(
-            icon: const Icon(Icons.save, color: Color(0xFF8888aa), size: 20),
+            icon: Icon(Icons.save, color: AppTheme.textSecondary, size: 20),
             onPressed: () {
               _saveToStorage();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ 已保存'), backgroundColor: Color(0xFF22c55e), duration: Duration(seconds: 1)),
+                      SnackBar(content: Text('✅ 已保存'), backgroundColor: Color(0xFF22c55e), duration: Duration(seconds: 1)),
               );
             },
             tooltip: '保存',
           ),
           IconButton(
-            icon: const Icon(Icons.bar_chart, color: Color(0xFF8888aa)),
+            icon: Icon(Icons.bar_chart, color: AppTheme.textSecondary),
             onPressed: _showReport,
           ),
           // 演示模式:模拟答题,看掌握度变化(仅测试/预览版)
           if (kDemoMode)
             IconButton(
-              icon: const Icon(Icons.science, color: Color(0xFF8888aa)),
+              icon: Icon(Icons.science, color: AppTheme.textSecondary),
               tooltip: '演示模式',
               onPressed: _showDemoPanel,
             ),
@@ -878,7 +878,7 @@ class _LearnScreenState extends State<LearnScreen> {
           // 输入区
           if (!_loading)
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding:       EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Row(
                 children: [
                   Expanded(
@@ -886,15 +886,15 @@ class _LearnScreenState extends State<LearnScreen> {
                       controller: _inputController,
                       maxLines: 3,
                       minLines: 1,
-                      style: const TextStyle(color: Color(0xFFe8e8f0), fontSize: 15),
+                      style: TextStyle(color: AppTheme.textPrimary, fontSize: 15),
                       decoration: InputDecoration(
                         hintText: _answering ? '用你自己的话回答...' : '输入你的想法...',
-                        hintStyle: const TextStyle(color: Color(0xFF555577)),
+                        hintStyle: TextStyle(color: AppTheme.textSecondary),
                         filled: true,
                         fillColor: AppTheme.surfaceLight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppTheme.border),
+                          borderSide: BorderSide(color: AppTheme.border),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
@@ -908,23 +908,23 @@ class _LearnScreenState extends State<LearnScreen> {
                     child: Container(
                       width: 44, height: 44,
                       decoration: BoxDecoration(
-                        color: _isListening ? const Color(0xFFef4444) : AppTheme.border,
+                        color: _isListening ?       Color(0xFFef4444) : AppTheme.border,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         _isListening ? Icons.mic : Icons.mic_none,
-                        color: _isListening ? Colors.white : const Color(0xFF8888aa),
+                        color: _isListening ? Colors.white : AppTheme.textSecondary,
                         size: 20,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                        SizedBox(width: 6),
                   GestureDetector(
                     onTap: _handleSubmit,
                     child: Container(
                       width: 44, height: 44,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF6c5ce7), Color(0xFF8b5cf6)]),
+                        gradient: LinearGradient(colors: [AppTheme.accent, AppTheme.accentLight]),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.send, color: Colors.white, size: 20),
@@ -934,11 +934,11 @@ class _LearnScreenState extends State<LearnScreen> {
               ),
             )
           else
-            const Padding(
+                  Padding(
               padding: EdgeInsets.all(16),
               child: LinearProgressIndicator(
-                backgroundColor: Color(0xFF2a2a3e),
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6c5ce7)),
+                backgroundColor: AppTheme.border,
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent),
               ),
             ),
         ],
@@ -959,7 +959,7 @@ class _LearnScreenState extends State<LearnScreen> {
           padding: const EdgeInsets.only(bottom: 12),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding:       EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
@@ -970,8 +970,8 @@ class _LearnScreenState extends State<LearnScreen> {
               children: [
                 SelectableText(
                   m.text,
-                  style: const TextStyle(
-                    fontSize: 14, color: Color(0xFFe8e8f0), height: 1.7,
+                  style: TextStyle(
+                    fontSize: 14, color: AppTheme.textPrimary, height: 1.7,
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -991,7 +991,7 @@ class _LearnScreenState extends State<LearnScreen> {
                         _bookmarkCurrent(title, m.text);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding:       EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppTheme.accent.withOpacity(0.15),
@@ -1001,7 +1001,7 @@ class _LearnScreenState extends State<LearnScreen> {
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
+                          children: [
                             Icon(Icons.bookmark_border,
                                 size: 14, color: AppTheme.accentLight),
                             SizedBox(width: 4),
@@ -1021,15 +1021,15 @@ class _LearnScreenState extends State<LearnScreen> {
       }
       // 普通AI消息
       return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding:       EdgeInsets.only(bottom: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 32, height: 32,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6c5ce7), Color(0xFF8b5cf6)],
+                gradient: LinearGradient(
+                  colors: [AppTheme.accent, AppTheme.accentLight],
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -1038,10 +1038,10 @@ class _LearnScreenState extends State<LearnScreen> {
             const SizedBox(width: 8),
             Flexible(
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding:       EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppTheme.surface,
-                  borderRadius: const BorderRadius.only(
+                  borderRadius:       BorderRadius.only(
                     topLeft: Radius.circular(4),
                     topRight: Radius.circular(14),
                     bottomLeft: Radius.circular(14),
@@ -1050,7 +1050,7 @@ class _LearnScreenState extends State<LearnScreen> {
                 ),
                 child: SelectableText(
                   m.text,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFFe8e8f0), height: 1.7),
+                  style: TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.7),
                 ),
               ),
             ),
@@ -1067,7 +1067,7 @@ class _LearnScreenState extends State<LearnScreen> {
           children: [
             Flexible(
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding:       EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppTheme.accent,
                   borderRadius: const BorderRadius.only(
@@ -1080,7 +1080,7 @@ class _LearnScreenState extends State<LearnScreen> {
                 child: Text(m.text, style: const TextStyle(fontSize: 14, color: Colors.white, height: 1.7)),
               ),
             ),
-            const SizedBox(width: 8),
+                  SizedBox(width: 8),
             Container(
               width: 30, height: 30,
               decoration: BoxDecoration(

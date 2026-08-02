@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_theme.dart';
 import 'file_storage_service.dart';
 import 'study_engine.dart';
 import 'api_service.dart';
@@ -14,6 +15,9 @@ void main() async {
   ApiService.apiKey = prefs.getString('api_key') ?? ApiService.builtinKey;
   ApiService.backend = prefs.getString('backend') ?? 'deepseek';
   ApiService.bailianKey = prefs.getString('bailian_key') ?? '';
+
+  // 主题模式:默认白色(亮色),可切换
+  AppTheme.isDark = prefs.getBool('dark_theme') ?? false;
 
   // 引擎数据从文件加载（代替 SharedPreferences 的大数据存储）
   StudyEngine engine;
@@ -90,7 +94,7 @@ class _AITutorAppState extends State<AITutorApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: '元启AI学伴',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(),
+      theme: AppTheme.isDark ? ThemeData.dark() : ThemeData.light(),
       home: HomeScreen(engine: widget.engine),
     );
   }

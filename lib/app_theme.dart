@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
 
-/// 元启AI学伴 · 统一系统主题
-/// 灵感来自《学霸的黑科技系统》——深色系统界面+颜色分级
+/// 元启AI学伴 · 统一主题
+/// 支持明/暗两套配色,可自由切换
 class AppTheme {
-  // ── 基础色 ──
-  static const Color bg = Color(0xFF0a0a0f); // 最深背景
-  static const Color surface = Color(0xFF12121a); // 卡片/面板
-  static const Color surfaceLight = Color(0xFF1a1a2e); // 输入框/浅面板
-  static const Color border = Color(0xFF2a2a3e); // 边框
-  static const Color textPrimary = Color(0xFFe8e8f0); // 主文字
-  static const Color textSecondary = Color(0xFF8888aa); // 次要文字
-  static const Color accent = Color(0xFF6c5ce7); // 主色调（紫色）
-  static const Color accentLight = Color(0xFF8b5cf6); // 浅紫色
-  static const Color accentGlow = Color(0xFFa29bfe); // 发光紫
+  AppTheme._();
 
-  // ── 价值颜色分级（从高到低） ──
-  /// 价值系数 → 颜色
+  // ── 当前主题模式(由 main.dart 在启动时设置) ──
+  static bool isDark = true;
+
+  // ── 基础色(明/暗双套) ──
+  static Color get bg => isDark ? const Color(0xFF0a0a0f) : const Color(0xFFf7f7f9); // 背景
+  static Color get surface => isDark ? const Color(0xFF12121a) : const Color(0xFFFFFFFF); // 卡片/面板
+  static Color get surfaceLight => isDark ? const Color(0xFF1a1a2e) : const Color(0xFFf0f0f4); // 输入框/浅面板
+  static Color get border => isDark ? const Color(0xFF2a2a3e) : const Color(0xFFd8d8e0); // 边框
+  static Color get textPrimary => isDark ? const Color(0xFFe8e8f0) : const Color(0xFF1a1a24); // 主文字
+  static Color get textSecondary => isDark ? const Color(0xFF8888aa) : const Color(0xFF6b6b80); // 次要文字
+  static Color get accent => isDark ? const Color(0xFF6c5ce7) : const Color(0xFF5b4bd5); // 主色调（紫）
+  static Color get accentLight => isDark ? const Color(0xFF8b5cf6) : const Color(0xFF7c6af0); // 浅紫
+  static Color get accentGlow => isDark ? const Color(0xFFa29bfe) : const Color(0xFF6c5ce7); // 发光紫(亮色下取深紫保证可读)
+
+  // ── 任务状态颜色 ──
+  static const Color taskLocked = Color(0xFF9a9aae);
+  static Color get taskActive => accent;
+  static const Color taskDone = Color(0xFF22c55e);
+
+  // ── 价值颜色分级（从高到低,明暗通用） ──
   static Color valueColor(int score) {
-    if (score >= 90) return const Color(0xFFef4444); // 🔴 红色 — 神级
-    if (score >= 70) return const Color(0xFFf97316); // 🟠 橙色 — 优质
-    if (score >= 50) return const Color(0xFFeab308); // 🟡 黄色 — 中等
-    if (score >= 30) return const Color(0xFF22c55e); // 🟢 绿色 — 基础
-    return const Color(0xFF6b7280); // ⚪ 灰色 — 拓展
+    if (score >= 90) return const Color(0xFFef4444); // 🔴 神级
+    if (score >= 70) return const Color(0xFFf97316); // 🟠 优质
+    if (score >= 50) return const Color(0xFFeab308); // 🟡 中等
+    if (score >= 30) return const Color(0xFF22c55e); // 🟢 基础
+    return const Color(0xFF6b7280); // ⚪ 拓展
   }
 
   /// 价值等级标签
@@ -42,26 +51,21 @@ class AppTheme {
     return '📄';
   }
 
-  // ── 任务状态颜色 ──
-  static const Color taskLocked = Color(0xFF4a4a5e);
-  static const Color taskActive = Color(0xFF6c5ce7);
-  static const Color taskDone = Color(0xFF22c55e);
-
   // ── 系统字体样式 ──
-  static const TextStyle systemTitle = TextStyle(
+  static TextStyle get systemTitle => TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w800,
     color: accentGlow,
     letterSpacing: 1.2,
   );
 
-  static const TextStyle systemSubtitle = TextStyle(
+  static TextStyle get systemSubtitle => TextStyle(
     fontSize: 13,
     color: textSecondary,
     letterSpacing: 0.8,
   );
 
-  static const TextStyle bookTitle = TextStyle(
+  static TextStyle get bookTitle => TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: textPrimary,
@@ -78,7 +82,7 @@ class AppTheme {
         margin: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [border.withOpacity(0), border, border.withOpacity(0)],
+            colors: [border.withValues(alpha: 0), border, border.withValues(alpha: 0)],
           ),
         ),
       );
@@ -88,13 +92,13 @@ class AppTheme {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [accent.withOpacity(0.2), accentLight.withOpacity(0.1)],
+            colors: [accent.withValues(alpha: 0.2), accentLight.withValues(alpha: 0.1)],
           ),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: accent.withOpacity(0.3)),
+          border: Border.all(color: accent.withValues(alpha: 0.3)),
         ),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11, color: accentGlow, letterSpacing: 0.5)),
       );
 
@@ -102,9 +106,9 @@ class AppTheme {
   static Widget valueBadge(int score) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: valueColor(score).withOpacity(0.15),
+          color: valueColor(score).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: valueColor(score).withOpacity(0.3)),
+          border: Border.all(color: valueColor(score).withValues(alpha: 0.3)),
         ),
         child: Text(
           '价值 $score · ${valueLabel(score)}',
