@@ -20,7 +20,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final _controller = TextEditingController();
   List<String> _subjects = [];
   bool _saving = false;
-  String _saveMsg = '';
 
   @override
   void initState() {
@@ -68,13 +67,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _saveEngineSync() async {
     setState(() => _saving = true);
     await FileStorageService.save({'engine_data': widget.engine.toJson()});
-    setState(() {
-      _saving = false;
-      _saveMsg = '✅ 已保存';
-    });
-    Future.delayed(      Duration(seconds: 2), () {
-      if (mounted) setState(() => _saveMsg = '');
-    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('✅ 已保存'),
+        backgroundColor: AppTheme.taskDone,
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   void _saveEngine() {
@@ -123,29 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              appVersion,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (_saveMsg.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Text(
-                _saveMsg,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF22c55e),
-                ),
-              ),
-            ],
-          ],
-        ),
+        title: const SizedBox.shrink(),
         actions: [
           // ── 学习模式切换 ──
           GestureDetector(
@@ -250,33 +229,36 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            // ── 封面图 ──
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                'assets/images/cover.png',
-                width: 260,
-                height: 260,
-                fit: BoxFit.cover,
-              ),
-            ),
-                  SizedBox(height: 8),
-            ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [AppTheme.accentGlow, AppTheme.accent],
-              ).createShader(bounds),
-              child: const Text(
-                '元启 AI 学伴',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+            const SizedBox(height: 24),
+            // ── Logo 区(纯文字 + 简洁图形) ──
+            Container(
+              width: 168,
+              height: 168,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accent.withValues(alpha: 0.07),
+                border: Border.all(
+                  color: AppTheme.border.withValues(alpha: 0.6),
                 ),
               ),
+              child: Icon(
+                Icons.auto_stories_outlined,
+                size: 64,
+                color: AppTheme.accent,
+              ),
             ),
-            const SizedBox(height: 4),
-                  Text(
+            const SizedBox(height: 20),
+            Text(
+              '元启 AI 学伴',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.accent,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
               '语音输入 · 真AI教学 · 游戏化学习',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
@@ -312,6 +294,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             const SizedBox(height: 24),
+
+            // ── 版本号页脚 ──
+            Text(
+              appVersion,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -735,6 +727,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSettings(BuildContext context) {
+    // 单个输入框:填 API Key,后端按前缀自动识别
     final controller = TextEditingController(text: ApiService.apiKey);
     showDialog(
       context: context,
@@ -748,6 +741,7 @@ class _HomeScreenState extends State<HomeScreen> {
               TextField(
                 controller: controller,
                 style: TextStyle(color: AppTheme.textPrimary),
+                onChanged: (_) => setDialogState(() {}),
                 decoration:       InputDecoration(
                   labelText: 'API Key',
                   hintText: 'sk-...',
@@ -755,44 +749,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
-              // ── 后端选择 ──
-                    Text('后端选择', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                    SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                value: ApiService.backend,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppTheme.border,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding:       EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-                dropdownColor: AppTheme.surfaceLight,
-                style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                items: const [
-                  DropdownMenuItem(value: 'deepseek', child: Text('DeepSeek（默认内置Key）')),
-                  DropdownMenuItem(value: 'bailian', child: Text('百炼 Qwen（需填Key）')),
-                  DropdownMenuItem(value: 'siliconflow', child: Text('SiliconFlow（国内直连）')),
-                  DropdownMenuItem(value: 'proxy', child: Text('本地中转（局域网代理）')),
-                ],
-                onChanged: (v) => setDialogState(() {}),
-              ),
-              if (ApiService.backend == 'bailian') ...[
-                      SizedBox(height: 8),
-                TextField(
-                  controller: TextEditingController(text: ApiService.bailianKey),
-                  style: TextStyle(color: AppTheme.textPrimary),
-                  decoration:       InputDecoration(
-                    labelText: '百炼 API Key',
-                    hintText: 'sk-...',
-                    labelStyle: TextStyle(color: AppTheme.textSecondary),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-                    SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                _backendHint(ApiService.backend),
+                _backendHint(controller.text),
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
               ),
             ],
@@ -803,9 +762,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child:       Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 ApiService.apiKey = controller.text.trim();
-                Navigator.pop(ctx);
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('api_key', ApiService.apiKey);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
               child:       Text('保存', style: TextStyle(color: AppTheme.accent)),
             ),
@@ -815,17 +776,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  static String _backendHint(String backend) {
-    switch (backend) {
-      case 'bailian':
-        return '🔮 使用阿里云百炼 Qwen 模型，需要填入百炼 API Key';
-      case 'siliconflow':
-        return '⚡ 国内直连 DeepSeek，需使用 SiliconFlow 官网的 Key';
-      case 'proxy':
-        return '🔄 通过本地中转代理访问 DeepSeek，无需 API Key';
-      default:
-        return '🔑 使用 DeepSeek 官方，默认使用内置 Key';
+  /// Key 提示(根据前缀实时提示当前识别的后端)
+  static String _backendHint(String key) {
+    final k = key.trim();
+    if (k.startsWith('sk-sp-')) {
+      return '🔮 识别为百炼 Qwen（TokenPlan）';
     }
+    if (k.startsWith('sk-proj-')) {
+      return '⚡ 识别为 OpenAI（GPT）';
+    }
+    if (k.startsWith('sk-')) {
+      return '🔑 识别为 DeepSeek 官方';
+    }
+    return '💡 填入 API Key，自动识别后端';
   }
 }
 

@@ -12,9 +12,7 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
 
   // API key 等小配置仍用 SharedPreferences（简单可靠）
-  ApiService.apiKey = prefs.getString('api_key') ?? ApiService.builtinKey;
-  ApiService.backend = prefs.getString('backend') ?? 'deepseek';
-  ApiService.bailianKey = prefs.getString('bailian_key') ?? '';
+  ApiService.apiKey = prefs.getString('api_key') ?? '';
 
   // 主题模式:默认白色(亮色),可切换
   AppTheme.isDark = prefs.getBool('dark_theme') ?? false;
@@ -94,7 +92,10 @@ class _AITutorAppState extends State<AITutorApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: '元启AI学伴',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.isDark ? ThemeData.dark() : ThemeData.light(),
+      theme: ThemeData(
+        brightness: AppTheme.isDark ? Brightness.dark : Brightness.light,
+        fontFamily: 'AppFont',
+      ),
       home: HomeScreen(engine: widget.engine),
     );
   }

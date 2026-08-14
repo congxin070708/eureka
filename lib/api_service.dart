@@ -12,35 +12,34 @@ class ApiResult {
 }
 
 class ApiService {
-  // ── 后端选择 ──
+  // ── 后端(按 Key 前缀自动识别) ──
   static const String _deepseekUrl = 'https://api.deepseek.com/v1/chat/completions';
   static const String _bailianUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-  static const String _siliconFlowUrl = 'https://api.siliconflow.cn/v1/chat/completions';
-  static const String _proxyUrl = 'http://192.168.1.6:8899/v1/chat/completions';
-
-  /// 当前使用的后端：'deepseek' | 'bailian' | 'siliconflow' | 'proxy'
-  static String backend = 'deepseek';
+  static const String _openaiUrl = 'https://api.openai.com/v1/chat/completions';
 
   static String apiKey = '';
-  /// 内置默认Key(DeepSeek)
-  /// 开源版:留空,用户在设置中填入自己的 Key
-  static const String builtinKey = '';
-  /// 百炼 API Key
-  static String bailianKey = '';
+
+  /// 后端类型:按 Key 前缀识别
+  /// sk-sp- → 百炼(TokenPlan)；sk-proj- → OpenAI；其他 sk- → DeepSeek
+  static String get _backend {
+    final k = apiKey.trim();
+    if (k.startsWith('sk-sp-')) return 'bailian';
+    if (k.startsWith('sk-proj-')) return 'openai';
+    return 'deepseek';
+  }
 
   static String get baseUrl {
-    switch (backend) {
+    switch (_backend) {
       case 'bailian': return _bailianUrl;
-      case 'siliconflow': return _siliconFlowUrl;
-      case 'proxy': return _proxyUrl;
+      case 'openai': return _openaiUrl;
       default: return _deepseekUrl;
     }
   }
 
   static String get _model {
-    switch (backend) {
+    switch (_backend) {
       case 'bailian': return 'qwen-plus';
-      case 'siliconflow': return 'deepseek-v4-pro';
+      case 'openai': return 'gpt-4o-mini';
       default: return 'deepseek-v4-flash';
     }
   }
@@ -50,20 +49,9 @@ class ApiService {
     String userMsg, {
     List<Map<String, String>>? history,
   }) async {
-    // 获取当前后端的 key
-    String key = apiKey;
-    if (backend == 'bailian') {
-      if (bailianKey.isEmpty) return ApiResult.failure('请先设置百炼 API Key');
-      key = bailianKey;
-    } else if (backend == 'deepseek' && apiKey.isEmpty) {
-      key = builtinKey; // 使用内置 key
-    } else if (backend == 'siliconflow' && apiKey.isEmpty) {
-      return ApiResult.failure('请先设置 API Key');
-    } else if (backend == 'proxy') {
-      // 中转不需要 key
-    } else if (apiKey.isEmpty) {
-      return ApiResult.failure('请先在设置中填入 API Key');
-    }
+    // 检查 key
+    String key = apiKey.trim();
+    if (key.isEmpty) return ApiResult.failure('请先在设置中填入 API Key');
     // 组装 messages:system + 最近对话上下文 + 当前提问
     final messages = <Map<String, String>>[
       {'role': 'system', 'content': system},
@@ -76,8 +64,8 @@ class ApiService {
       'temperature': 0.6,
       'max_tokens': 4000,
       // DeepSeek v4-flash 正式版(0731)默认走思考模式会返回空 content,
-      // 显式禁用思考模式,保证普通聊天可用
-      if (backend == 'deepseek') 'thinking': {'type': 'disabled'},
+      // 显式禁用思考模式,保证普通聊天可用(仅 DeepSeek 支持该参数)
+      if (_backend == 'deepseek') 'thinking': {'type': 'disabled'},
     };
     try {
       final resp = await http.post(
@@ -93,7 +81,7 @@ class ApiService {
         final data = jsonDecode(resp.body);
         final msg = data['choices'][0]['message'];
         var content = msg['content'] ?? '';
-        // 推理模型(如 siliconflow 的 deepseek-v4-pro)内容可能放在 reasoning_content
+        // 推理模型内容可能放在 reasoning_content
         if (content.toString().trim().isEmpty) {
           content = msg['reasoning_content'] ?? '';
         }
