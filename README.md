@@ -1,6 +1,8 @@
-# 元启AI学伴
+# Eureka (尤里卡)
 
 一款手机端的 AI 学习强化训练应用。选择科目 → 生成学习路线 → 逐知识点讲解 → 答题评分 → 掌握度门控 → 遗忘曲线复习。
+
+名字源自阿基米德的 "Eureka!"(我发现了!)——知识顿悟的那一刻。
 
 ## 特性
 
@@ -38,10 +40,3 @@ flutter build apk --release --dart-define=DEMO_MODE=true
 ## 致谢
 
 学习机制(掌握度计算、知识类型分级、间隔复习调度)参考自
-[DeepTutor](https://github.com/HKUDS/DeepTutor)(HKUDS),
-遵循 Apache License 2.0,详见 [NOTICE.md](NOTICE.md)。
-本项目的 Dart 实现为独立重写,并在此基础上新增"价值系数影响学习策略"维度。
-
-## License
-
-Apache License 2.0
