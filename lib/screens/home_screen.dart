@@ -23,18 +23,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _controller = TextEditingController();
-  List<String> _subjects = [];
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _reloadEngine();
     final e = ref.read(studyEngineProvider);
-    if (e.currentSubject.isEmpty && e.subjects.keys.isNotEmpty) {
-      ref.read(studyEngineProvider.notifier).setCurrentSubject(e.subjects.keys.first);
+    if (e.currentSubject.isEmpty && e.subjects.isNotEmpty) {
+      e.setCurrentSubject(e.subjects.keys.first);
     }
-    _subjects = e.subjects.keys.toList();
   }
 
   @override
@@ -43,30 +40,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  void _reloadEngine() {
-    _loadFromStorage();
-  }
-
-  void _loadFromStorage() {
-    FileStorageService.loadEngineData().then((fileData) {
-      if (fileData == null) return;
-      try {
-        final loaded = StudyEngine.fromJson(fileData);
-        final notifier = ref.read(studyEngineProvider.notifier);
-        final current = ref.read(studyEngineProvider);
-        if (loaded.subjects.isNotEmpty && current.subjects.isEmpty) {
-          notifier.replaceEngine(loaded);
-        }
-        setState(() {
-          _subjects = ref.read(studyEngineProvider).subjects.keys.toList();
-        });
-      } catch (_) {}
-    });
-  }
-
   Future<void> _saveEngineSync() async {
     setState(() => _saving = true);
-    await ref.read(studyEngineProvider.notifier).save();
+    await ref.read(studyEngineProvider).save();
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -84,8 +60,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ChangeNotifierProvider: ref.watch 返回 notifier 本身,notifyListeners 触发重建
     final e = ref.watch(studyEngineProvider);
+    final subjects = e.subjects.keys.toList();
     final checkedIn = e.isCheckedInToday;
+
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
@@ -132,7 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final modes = ['速学', '深度', '挑战'];
               final current = modes.indexOf(e.studyMode);
               final next = (current + 1) % modes.length;
-              ref.read(studyEngineProvider.notifier).setStudyMode(modes[next]);
+              e.setStudyMode(modes[next]);
               _saveEngineSync();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -170,7 +149,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: checkedIn
                 ? null
                 : () {
-                    ref.read(studyEngineProvider.notifier).checkIn();
+                    e.checkIn();
                     _saveEngineSync();
                   },
           ),
@@ -194,18 +173,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.bar_chart, color: AppTheme.textSecondary, size: 20),
             tooltip: '学习中心',
             onPressed: () {
-              final engine = ref.read(studyEngineProvider);
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => StatsScreen(
-                    engine: engine,
-                    subject: engine.currentSubject.isNotEmpty
-                        ? engine.currentSubject
-                        : (_subjects.isNotEmpty ? _subjects.first : ''),
+                    subject: e.currentSubject.isNotEmpty
+                        ? e.currentSubject
+                        : (subjects.isNotEmpty ? subjects.first : ''),
                   ),
                 ),
-              ).then((_) => setState(() {}));
+              ).then((_) => _saveEngineSync());
             },
           ),
           // ── 设置按钮 ──
@@ -217,11 +194,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // ── 主题切换 ──
           IconButton(
             icon: Icon(
-              AppTheme.isDark ? Icons.light_mode : Icons.dark_mode,
+              ref.watch(themeProvider) ? Icons.light_mode : Icons.dark_mode,
               color: AppTheme.textSecondary,
               size: 20,
             ),
-            tooltip: AppTheme.isDark ? '切换为白色主题' : '切换为黑色主题',
+            tooltip: ref.watch(themeProvider) ? '切换为白色主题' : '切换为黑色主题',
             onPressed: _toggleTheme,
           ),
         ],
@@ -268,14 +245,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 16),
             _buildReviewPanel(e),
             const SizedBox(height: 16),
-            _buildBookShelf(e),
+            _buildBookShelf(e, subjects),
             const SizedBox(height: 16),
 
             // ── 添加新学科按钮 ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: OutlinedButton.icon(
-                onPressed: _showAddSubjectDialog,
+                onPressed: () => _showAddSubjectDialog(e),
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('添加新学科'),
                 style: OutlinedButton.styleFrom(
@@ -324,7 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onTap: checkedIn
                     ? null
                     : () {
-                        ref.read(studyEngineProvider.notifier).checkIn();
+                        e.checkIn();
                         _saveEngineSync();
                       },
                 child: Container(
@@ -565,8 +542,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBookShelf(StudyEngine e) {
-    final subjects = e.subjects.keys.toList();
+  Widget _buildBookShelf(StudyEngine e, List<String> subjects) {
     if (subjects.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -620,20 +596,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 qCount: sub.q,
                 accuracy: sub.accuracy,
                 onTap: () {
-                  ref.read(studyEngineProvider.notifier).setCurrentSubject(name);
+                  e.setCurrentSubject(name);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => LearnScreen(subject: name),
                     ),
                   ).then((_) {
-                    setState(() {
-                      _subjects = ref.read(studyEngineProvider).subjects.keys.toList();
-                    });
                     _saveEngineSync();
                   });
                 },
-                onDelete: () => _confirmDeleteSubject(name),
+                onDelete: () => _confirmDeleteSubject(name, e),
               );
             },
           ),
@@ -642,7 +615,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _confirmDeleteSubject(String name) {
+  void _confirmDeleteSubject(String name, StudyEngine e) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -656,11 +629,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           TextButton(
             onPressed: () {
-              ref.read(studyEngineProvider.notifier).removeSubject(name);
+              e.removeSubject(name);
               Navigator.pop(ctx);
-              setState(() {
-                _subjects = ref.read(studyEngineProvider).subjects.keys.toList();
-              });
               _saveEngineSync();
             },
             child: const Text('删除', style: TextStyle(color: Color(0xFFef4444))),
@@ -670,7 +640,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _showAddSubjectDialog() {
+  void _showAddSubjectDialog(StudyEngine e) {
     final subjectCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -688,11 +658,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           onSubmitted: (v) {
             if (v.trim().isNotEmpty) {
-              ref.read(studyEngineProvider).getSubject(v.trim());
+              e.getSubject(v.trim());
               Navigator.pop(ctx);
-              setState(() {
-                _subjects = ref.read(studyEngineProvider).subjects.keys.toList();
-              });
               _saveEngineSync();
             }
           },
@@ -706,11 +673,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: () {
               final v = subjectCtrl.text.trim();
               if (v.isNotEmpty) {
-                ref.read(studyEngineProvider).getSubject(v);
+                e.getSubject(v);
                 Navigator.pop(ctx);
-                setState(() {
-                  _subjects = ref.read(studyEngineProvider).subjects.keys.toList();
-                });
                 _saveEngineSync();
               }
             },
@@ -725,7 +689,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(themeProvider.notifier).toggle();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('dark_theme', AppTheme.isDark);
-    setState(() {});
   }
 
   void _showSettings(BuildContext context) {
@@ -776,11 +739,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onPressed: () async {
                         final imported = await DataExportService.importData();
                         if (imported != null) {
-                          ref.read(studyEngineProvider.notifier).replaceEngine(imported);
-                          await ref.read(studyEngineProvider.notifier).save();
+                          ref.read(studyEngineProvider).replaceEngine(imported);
+                          await ref.read(studyEngineProvider).save();
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
-                            setState(() {});
                           }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(

@@ -1,108 +1,133 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../study_engine.dart';
 import '../file_storage_service.dart';
 import '../app_theme.dart';
 
 /// ── StudyEngine 状态管理 ──
-/// 使用 StateNotifier 统一管理引擎状态,所有页面通过 ref.watch 共享同一实例
-/// 修改引擎数据后调用 state = state 即可触发 UI 重建
-class StudyEngineNotifier extends StateNotifier<StudyEngine> {
-  StudyEngineNotifier() : super(StudyEngine());
-
+/// 使用 ChangeNotifierProvider 管理可变状态
+/// StudyEngine 内部数据变化后调用 notifyListeners() 触发 UI 重建
+/// 比 StateNotifier 更适合 StudyEngine 这种重量级可变对象
+class StudyEngineNotifier extends StudyEngine with ChangeNotifier {
   /// 从文件系统加载引擎数据(启动时调用)
   Future<void> loadFromStorage() async {
     try {
       final fileData = await FileStorageService.loadEngineData();
       if (fileData != null) {
-        state = StudyEngine.fromJson(fileData);
+        final loaded = StudyEngine.fromJson(fileData);
+        // 把加载的数据合并到当前实例
+        level = loaded.level;
+        xp = loaded.xp;
+        xpNext = loaded.xpNext;
+        totalXp = loaded.totalXp;
+        totalQ = loaded.totalQ;
+        totalCorrect = loaded.totalCorrect;
+        streak = loaded.streak;
+        bestStreak = loaded.bestStreak;
+        totalStudyMinutes = loaded.totalStudyMinutes;
+        studyMode = loaded.studyMode;
+        currentSubject = loaded.currentSubject;
+        subjects = loaded.subjects;
+        history = loaded.history;
+        dailyRecords = loaded.dailyRecords;
+        chatHistory = loaded.chatHistory;
+        bookmarks = loaded.bookmarks;
+        notifyListeners();
       }
     } catch (_) {}
   }
 
-  /// 用外部加载好的引擎替换当前状态
-  void setEngine(StudyEngine engine) {
-    state = engine;
+  /// 用外部引擎替换全部数据
+  void replaceEngine(StudyEngine other) {
+    level = other.level;
+    xp = other.xp;
+    xpNext = other.xpNext;
+    totalXp = other.totalXp;
+    totalQ = other.totalQ;
+    totalCorrect = other.totalCorrect;
+    streak = other.streak;
+    bestStreak = other.bestStreak;
+    totalStudyMinutes = other.totalStudyMinutes;
+    studyMode = other.studyMode;
+    currentSubject = other.currentSubject;
+    subjects = other.subjects;
+    history = other.history;
+    dailyRecords = other.dailyRecords;
+    chatHistory = other.chatHistory;
+    bookmarks = other.bookmarks;
+    notifyListeners();
   }
 
-  /// 持久化到文件系统
-  Future<void> save() async {
-    await FileStorageService.save({'engine_data': state.toJson()});
-  }
+  // ── 以下方法覆盖父类,操作后通知监听者 ──
 
-  /// 答题记录
+  @override
   RecordResult record(String subject, int score) {
-    final result = state.record(subject, score);
-    state = state; // 触发重建
+    final result = super.record(subject, score);
+    notifyListeners();
     return result;
   }
 
-  /// 签到
+  @override
   void checkIn() {
-    state.checkIn();
-    state = state;
+    super.checkIn();
+    notifyListeners();
+  }
+
+  @override
+  void addStudyMinutes(int minutes) {
+    super.addStudyMinutes(minutes);
+    notifyListeners();
+  }
+
+  @override
+  void addBookmark(String subject, String title, String content) {
+    super.addBookmark(subject, title, content);
+    notifyListeners();
+  }
+
+  @override
+  void removeBookmark(int index) {
+    super.removeBookmark(index);
+    notifyListeners();
   }
 
   /// 切换学习模式
   void setStudyMode(String mode) {
-    state.studyMode = mode;
-    state = state;
+    studyMode = mode;
+    notifyListeners();
   }
 
   /// 设置当前科目
   void setCurrentSubject(String subject) {
-    state.currentSubject = subject;
-    state = state;
-  }
-
-  /// 添加/获取科目
-  SubjectData getSubject(String name) {
-    return state.getSubject(name);
-  }
-
-  /// 添加收藏
-  void addBookmark(String subject, String title, String content) {
-    state.addBookmark(subject, title, content);
-    state = state;
-  }
-
-  /// 删除收藏
-  void removeBookmark(int index) {
-    state.removeBookmark(index);
-    state = state;
-  }
-
-  /// 添加学习时长
-  void addStudyMinutes(int minutes) {
-    state.addStudyMinutes(minutes);
-    state = state;
+    currentSubject = subject;
+    notifyListeners();
   }
 
   /// 删除科目
   void removeSubject(String name) {
-    state.subjects.remove(name);
-    if (state.currentSubject == name) {
-      state.currentSubject = '';
+    subjects.remove(name);
+    if (currentSubject == name) {
+      currentSubject = '';
     }
-    state = state;
+    notifyListeners();
   }
 
-  /// 从导入数据替换整个引擎
-  void replaceEngine(StudyEngine newEngine) {
-    state = newEngine;
+  /// 更新聊天记录后通知
+  void notifyChatUpdated() {
+    notifyListeners();
   }
 
-  /// 更新聊天记录
-  void updateChatHistory(String subject, List<Map<String, dynamic>> messages) {
-    state.chatHistory[subject] = messages;
-    state = state;
+  /// 持久化到文件系统
+  Future<void> save() async {
+    await FileStorageService.save({'engine_data': toJson()});
   }
 }
 
-/// 引擎 Provider(全局唯一实例)
+/// 引擎 Provider(全局唯一实例,ChangeNotifier 模式)
 final studyEngineProvider =
-    StateNotifierProvider<StudyEngineNotifier, StudyEngine>(
-  (ref) => StudyEngineNotifier(),
-);
+    ChangeNotifierProvider<StudyEngineNotifier>((ref) {
+  return StudyEngineNotifier();
+});
 
 /// ── 主题状态 ──
 class ThemeNotifier extends StateNotifier<bool> {

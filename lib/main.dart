@@ -36,37 +36,37 @@ void main() async {
   await NotificationService.init();
 
   // 引擎数据从文件加载（代替 SharedPreferences 的大数据存储）
-  StudyEngine engine;
+  StudyEngine loadedEngine;
   try {
     final fileData = await FileStorageService.loadEngineData();
     if (fileData != null) {
-      engine = StudyEngine.fromJson(fileData);
+      loadedEngine = StudyEngine.fromJson(fileData);
       debugPrint('[Main] 从文件加载引擎数据成功');
     } else {
       // 兼容旧版：从 SharedPreferences 迁移
       final stored = prefs.getString('engine_data');
       if (stored != null && stored.isNotEmpty) {
-        engine = StudyEngine.fromJson(jsonDecode(stored));
+        loadedEngine = StudyEngine.fromJson(jsonDecode(stored));
         debugPrint('[Main] 从 SharedPreferences 迁移引擎数据');
       } else {
-        engine = StudyEngine();
+        loadedEngine = StudyEngine();
         debugPrint('[Main] 初始创建新引擎');
       }
     }
   } catch (e) {
     debugPrint('[Main] 加载引擎失败: $e，创建新引擎');
-    engine = StudyEngine();
+    loadedEngine = StudyEngine();
   }
 
   // 启动时立刻保存一次，确保文件被创建
-  await _saveEngineData(engine);
+  await _saveEngineData(loadedEngine);
 
   runApp(ProviderScope(
     overrides: [
-      // 用已加载的引擎初始化 Provider
+      // 用已加载的引擎初始化 ChangeNotifier
       studyEngineProvider.overrideWith((ref) {
         final notifier = StudyEngineNotifier();
-        notifier.setEngine(engine);
+        notifier.replaceEngine(loadedEngine);
         return notifier;
       }),
       themeProvider.overrideWith((ref) {
@@ -111,7 +111,7 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
 
   void _saveEngine() {
     final engine = ref.read(studyEngineProvider);
-    ref.read(studyEngineProvider.notifier).save();
+    engine.save();
     _saveEngineData(engine);
   }
 
@@ -124,12 +124,15 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
 
   @override
   Widget build(BuildContext context) {
+    // 监听主题变化,切换时自动重建 MaterialApp
+    final isDark = ref.watch(themeProvider);
     return MaterialApp(
       title: '尤里卡',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: AppTheme.isDark ? Brightness.dark : Brightness.light,
+        brightness: isDark ? Brightness.dark : Brightness.light,
         fontFamily: 'AppFont',
+        scaffoldBackgroundColor: AppTheme.bg,
       ),
       home: const HomeScreen(),
     );
