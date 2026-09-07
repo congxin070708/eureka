@@ -1114,91 +1114,109 @@
     const lossCanvas = document.getElementById('lossChart');
     const lossCtx = lossCanvas.getContext('2d');
 
-    // 设置画布尺寸
-    function resizeCanvas() {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-      canvas._w = rect.width;
-      canvas._h = rect.height;
-
-      const lr = lossCanvas.getBoundingClientRect();
-      lossCanvas.width = lr.width * window.devicePixelRatio;
-      lossCanvas.height = lr.height * window.devicePixelRatio;
-      lossCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-      lossCanvas._w = lr.width;
-      lossCanvas._h = lr.height;
-    }
-    resizeCanvas();
-    window.addEventListener('resize', () => { resizeCanvas(); draw(); drawLossChart(); });
-
-    // 生成二分类数据集(双月形状)
+    // ── 状态 ──
     let data = [];
-    function generateData() {
-      data = [];
-      const n = 80;
-      for (let i = 0; i < n; i++) {
-        // 类别 0: 上半月
-        const angle = Math.PI * i / n + Math.PI * 0.1;
-        const r = 0.35 + (Math.random() - 0.5) * 0.08;
-        data.push({
-          x: 0.5 + r * Math.cos(angle),
-          y: 0.35 + r * Math.sin(angle) * 0.8,
-          label: 0
-        });
-        // 类别 1: 下半月
-        const angle2 = Math.PI * i / n + Math.PI * 1.1;
-        const r2 = 0.35 + (Math.random() - 0.5) * 0.08;
-        data.push({
-          x: 0.5 + r2 * Math.cos(angle2),
-          y: 0.65 + r2 * Math.sin(angle2) * 0.8,
-          label: 1
-        });
-      }
-    }
-    generateData();
-
-    // 神经网络
     let hiddenSize = 8;
     let learningRate = 0.1;
     let epochs = 200;
-    let weights1 = []; // 输入层 -> 隐藏层
+    let weights1 = [];
     let bias1 = [];
-    let weights2 = []; // 隐藏层 -> 输出层
+    let weights2 = [];
     let bias2 = 0;
     let lossHistory = [];
     let currentEpoch = 0;
     let training = false;
-    let trainTimer = null;
+    let animFrame = null;
+    let inited = false;
 
+    // ── Canvas 尺寸 ──
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      // 确保最小尺寸
+      const w = Math.max(rect.width || 400, 200);
+      const h = Math.max(rect.height || 380, 200);
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      canvas._w = w;
+      canvas._h = h;
+
+      const lr = lossCanvas.getBoundingClientRect();
+      const lw = Math.max(lr.width || 260, 100);
+      const lh = Math.max(lr.height || 80, 40);
+      lossCanvas.width = lw * dpr;
+      lossCanvas.height = lh * dpr;
+      lossCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      lossCanvas._w = lw;
+      lossCanvas._h = lh;
+    }
+
+    // ── 数据集（双月）──
+    function generateData() {
+      data = [];
+      const n = 80;
+      for (let i = 0; i < n; i++) {
+        // 上半月（类别 0）
+        const a1 = Math.PI * i / n + Math.PI * 0.15;
+        const r1 = 0.35 + (Math.random() - 0.5) * 0.08;
+        data.push({
+          x: 0.5 + r1 * Math.cos(a1),
+          y: 0.38 + r1 * Math.sin(a1) * 0.75,
+          label: 0
+        });
+        // 下半月（类别 1）
+        const a2 = Math.PI * i / n + Math.PI * 1.15;
+        const r2 = 0.35 + (Math.random() - 0.5) * 0.08;
+        data.push({
+          x: 0.5 + r2 * Math.cos(a2),
+          y: 0.62 + r2 * Math.sin(a2) * 0.75,
+          label: 1
+        });
+      }
+    }
+
+    // ── 权重初始化（Xavier）──
     function initWeights() {
       weights1 = [];
       bias1 = [];
+      const fanIn = 2;
+      const scale = Math.sqrt(2 / fanIn);
       for (let i = 0; i < hiddenSize; i++) {
-        weights1.push([Math.random() * 2 - 1, Math.random() * 2 - 1]);
-        bias1.push(Math.random() * 2 - 1);
+        weights1.push([
+          (Math.random() * 2 - 1) * scale,
+          (Math.random() * 2 - 1) * scale
+        ]);
+        bias1.push((Math.random() * 2 - 1) * 0.1);
       }
       weights2 = [];
+      const scale2 = Math.sqrt(2 / hiddenSize);
       for (let i = 0; i < hiddenSize; i++) {
-        weights2.push(Math.random() * 2 - 1);
+        weights2.push((Math.random() * 2 - 1) * scale2);
       }
-      bias2 = Math.random() * 2 - 1;
+      bias2 = (Math.random() * 2 - 1) * 0.1;
       lossHistory = [];
       currentEpoch = 0;
     }
-    initWeights();
 
-    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
-    function sigmoidDeriv(x) { return x * (1 - x); }
-    function relu(x) { return Math.max(0, x); }
-    function reluDeriv(x) { return x > 0 ? 1 : 0; }
+    // ── 激活函数 ──
+    function sigmoid(x) {
+      // 数值稳定的 sigmoid
+      if (x >= 0) {
+        const z = Math.exp(-x);
+        return 1 / (1 + z);
+      } else {
+        const z = Math.exp(x);
+        return z / (1 + z);
+      }
+    }
 
+    // ── 前向传播 ──
     function forward(x1, x2) {
-      const hidden = [];
+      const hidden = new Array(hiddenSize);
       for (let i = 0; i < hiddenSize; i++) {
         const z = weights1[i][0] * x1 + weights1[i][1] * x2 + bias1[i];
-        hidden.push(sigmoid(z));
+        hidden[i] = sigmoid(z);
       }
       let out = bias2;
       for (let i = 0; i < hiddenSize; i++) {
@@ -1208,160 +1226,232 @@
       return { hidden, out };
     }
 
+    // ── 一步训练（全批量梯度下降）──
     function trainStep() {
       let totalLoss = 0;
       let correct = 0;
 
+      // 累积梯度
+      const dw1 = Array.from({ length: hiddenSize }, () => [0, 0]);
+      const db1 = new Array(hiddenSize).fill(0);
+      let dw2 = new Array(hiddenSize).fill(0);
+      let db2 = 0;
+
       for (const d of data) {
         const { hidden, out } = forward(d.x, d.y);
-        const pred = out > 0.5 ? 1 : 0;
+        const pred = out >= 0.5 ? 1 : 0;
         if (pred === d.label) correct++;
 
-        const loss = -(d.label * Math.log(out + 1e-10) + (1 - d.label) * Math.log(1 - out + 1e-10));
+        // 交叉熵损失
+        const eps = 1e-10;
+        const loss = -(d.label * Math.log(out + eps) + (1 - d.label) * Math.log(1 - out + eps));
         totalLoss += loss;
 
         // 反向传播
-        const dOut = out - d.label;
+        const dOut = out - d.label; // 交叉熵 + sigmoid 的导数简化
 
         for (let i = 0; i < hiddenSize; i++) {
-          const dHidden = dOut * weights2[i] * sigmoidDeriv(hidden[i]);
-          weights2[i] -= learningRate * dOut * hidden[i];
-          weights1[i][0] -= learningRate * dHidden * d.x;
-          weights1[i][1] -= learningRate * dHidden * d.y;
-          bias1[i] -= learningRate * dHidden;
+          const dHidden = dOut * weights2[i] * hidden[i] * (1 - hidden[i]);
+          dw2[i] += dOut * hidden[i];
+          dw1[i][0] += dHidden * d.x;
+          dw1[i][1] += dHidden * d.y;
+          db1[i] += dHidden;
         }
-        bias2 -= learningRate * dOut;
+        db2 += dOut;
       }
 
-      totalLoss /= data.length;
-      const acc = correct / data.length * 100;
+      // 更新权重
+      const n = data.length;
+      for (let i = 0; i < hiddenSize; i++) {
+        weights2[i] -= learningRate * dw2[i] / n;
+        weights1[i][0] -= learningRate * dw1[i][0] / n;
+        weights1[i][1] -= learningRate * dw1[i][1] / n;
+        bias1[i] -= learningRate * db1[i] / n;
+      }
+      bias2 -= learningRate * db2 / n;
+
+      totalLoss /= n;
+      const acc = correct / n * 100;
       lossHistory.push(totalLoss);
       currentEpoch++;
 
       return { loss: totalLoss, acc };
     }
 
-    function getAccentColor() {
-      const styles = getComputedStyle(document.documentElement);
-      return styles.getPropertyValue('--accent').trim() || '#5b4bd5';
-    }
-    function getSuccessColor() {
-      const styles = getComputedStyle(document.documentElement);
-      return styles.getPropertyValue('--success').trim() || '#22c55e';
-    }
-    function getErrorColor() {
-      const styles = getComputedStyle(document.documentElement);
-      return styles.getPropertyValue('--error').trim() || '#ef4444';
-    }
-    function getTextColor() {
-      const styles = getComputedStyle(document.documentElement);
-      return styles.getPropertyValue('--text-secondary').trim() || '#6b6b80';
+    // ── 颜色辅助 ──
+    function cssVar(name, fallback) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
     }
 
+    // ── 绘制决策边界 + 数据点 ──
     function draw() {
       const w = canvas._w;
       const h = canvas._h;
+      if (!w || !h) return;
       ctx.clearRect(0, 0, w, h);
 
-      const padding = 20;
-      const plotW = w - padding * 2;
-      const plotH = h - padding * 2;
+      const pad = 24;
+      const pw = w - pad * 2;
+      const ph = h - pad * 2;
+      if (pw <= 0 || ph <= 0) return;
 
-      // 绘制决策边界(热力图)
-      const resolution = 40;
-      for (let i = 0; i < resolution; i++) {
-        for (let j = 0; j < resolution; j++) {
-          const x = (i + 0.5) / resolution;
-          const y = (j + 0.5) / resolution;
-          const { out } = forward(x, y);
-          const alpha = Math.abs(out - 0.5) * 2 * 0.15;
-          const px = padding + i / resolution * plotW;
-          const py = padding + j / resolution * plotH;
-          const pw = plotW / resolution + 1;
-          const ph = plotH / resolution + 1;
-          if (out > 0.5) {
-            ctx.fillStyle = `rgba(91, 75, 213, ${alpha})`;
-          } else {
-            ctx.fillStyle = `rgba(249, 115, 22, ${alpha})`;
-          }
-          ctx.fillRect(px, py, pw, ph);
+      // 决策边界热力图（提高分辨率和透明度）
+      const res = 50;
+      // 预先计算所有输出值
+      const grid = new Float32Array(res * res);
+      for (let j = 0; j < res; j++) {
+        for (let i = 0; i < res; i++) {
+          const x = (i + 0.5) / res;
+          const y = (j + 0.5) / res;
+          grid[j * res + i] = forward(x, y).out;
         }
       }
 
+      // 绘制热力图
+      const cw = pw / res;
+      const ch = ph / res;
+      const purple = cssVar('--accent', '#5b4bd5');
+      const orange = cssVar('--warning', '#f97316');
+
+      for (let j = 0; j < res; j++) {
+        for (let i = 0; i < res; i++) {
+          const out = grid[j * res + i];
+          const alpha = Math.abs(out - 0.5) * 2 * 0.4; // 提高到 0.4
+          const px = pad + i * cw;
+          const py = pad + j * ch;
+          if (out > 0.5) {
+            ctx.fillStyle = hexToRgba(purple, alpha);
+          } else {
+            ctx.fillStyle = hexToRgba(orange, alpha);
+          }
+          ctx.fillRect(px, py, cw + 0.5, ch + 0.5);
+        }
+      }
+
+      // 绘制决策边界线（0.5 等高线）
+      ctx.strokeStyle = cssVar('--text-primary', '#1a1a24');
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      for (let i = 0; i < res; i++) {
+        for (let j = 0; j < res - 1; j++) {
+          const v1 = grid[j * res + i];
+          const v2 = grid[(j + 1) * res + i];
+          if ((v1 - 0.5) * (v2 - 0.5) < 0) {
+            const t = (0.5 - v1) / (v2 - v1);
+            const px = pad + (i + 0.5) * cw;
+            const py = pad + (j + 0.5 + t) * ch;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+
       // 绘制数据点
       for (const d of data) {
-        const px = padding + d.x * plotW;
-        const py = padding + d.y * plotH;
+        const px = pad + d.x * pw;
+        const py = pad + d.y * ph;
         ctx.beginPath();
-        ctx.arc(px, py, 5, 0, Math.PI * 2);
-        if (d.label === 0) {
-          ctx.fillStyle = '#f97316';
-        } else {
-          ctx.fillStyle = '#5b4bd5';
-        }
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1.5;
+        ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = d.label === 0 ? orange : purple;
+        ctx.strokeStyle = cssVar('--surface', '#ffffff');
+        ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
       }
 
-      // 坐标轴
-      ctx.strokeStyle = getTextColor() + '33';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(padding, padding);
-      ctx.lineTo(padding, padding + plotH);
-      ctx.lineTo(padding + plotW, padding + plotH);
-      ctx.stroke();
+      // 坐标标签
+      ctx.fillStyle = cssVar('--text-secondary', '#6b6b80');
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('x₁', pad, h - 6);
+      ctx.textAlign = 'right';
+      ctx.fillText('x₂', w - pad, pad - 6);
     }
 
+    // hex 转 rgba
+    function hexToRgba(hex, alpha) {
+      hex = hex.trim();
+      if (hex.startsWith('#')) hex = hex.slice(1);
+      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // ── 损失曲线 ──
     function drawLossChart() {
       const w = lossCanvas._w;
       const h = lossCanvas._h;
+      if (!w || !h) return;
       lossCtx.clearRect(0, 0, w, h);
 
-      if (lossHistory.length < 2) return;
+      const accent = cssVar('--accent', '#5b4bd5');
+      const textSec = cssVar('--text-secondary', '#6b6b80');
 
-      const padding = 4;
-      const pw = w - padding * 2;
-      const ph = h - padding * 2;
+      if (lossHistory.length < 2) {
+        // 空状态提示
+        lossCtx.fillStyle = textSec;
+        lossCtx.font = '11px sans-serif';
+        lossCtx.textAlign = 'center';
+        lossCtx.fillText('点击「开始训练」查看曲线', w / 2, h / 2 + 4);
+        return;
+      }
+
+      const padL = 4, padR = 4, padT = 8, padB = 16;
+      const pw = w - padL - padR;
+      const ph = h - padT - padB;
 
       const maxLoss = Math.max(...lossHistory);
       const minLoss = Math.min(...lossHistory);
-      const range = maxLoss - minLoss || 0.1;
+      const range = maxLoss - minLoss || 0.01;
 
       // 渐变填充
-      const gradient = lossCtx.createLinearGradient(0, padding, 0, h - padding);
-      const accent = getAccentColor();
-      gradient.addColorStop(0, accent + '44');
-      gradient.addColorStop(1, accent + '00');
+      const gradient = lossCtx.createLinearGradient(0, padT, 0, h - padB);
+      gradient.addColorStop(0, hexToRgba(accent, 0.3));
+      gradient.addColorStop(1, hexToRgba(accent, 0));
 
       lossCtx.beginPath();
-      lossCtx.moveTo(padding, h - padding);
-      for (let i = 0; i < lossHistory.length; i++) {
-        const x = padding + (i / (lossHistory.length - 1)) * pw;
-        const y = padding + (1 - (lossHistory[i] - minLoss) / range) * ph;
+      lossCtx.moveTo(padL, h - padB);
+      const n = lossHistory.length;
+      for (let i = 0; i < n; i++) {
+        const x = padL + (i / (n - 1)) * pw;
+        const y = padT + (1 - (lossHistory[i] - minLoss) / range) * ph;
         lossCtx.lineTo(x, y);
       }
-      lossCtx.lineTo(padding + pw, h - padding);
+      lossCtx.lineTo(padL + pw, h - padB);
       lossCtx.closePath();
       lossCtx.fillStyle = gradient;
       lossCtx.fill();
 
       // 曲线
       lossCtx.beginPath();
-      for (let i = 0; i < lossHistory.length; i++) {
-        const x = padding + (i / (lossHistory.length - 1)) * pw;
-        const y = padding + (1 - (lossHistory[i] - minLoss) / range) * ph;
+      for (let i = 0; i < n; i++) {
+        const x = padL + (i / (n - 1)) * pw;
+        const y = padT + (1 - (lossHistory[i] - minLoss) / range) * ph;
         if (i === 0) lossCtx.moveTo(x, y);
         else lossCtx.lineTo(x, y);
       }
       lossCtx.strokeStyle = accent;
       lossCtx.lineWidth = 2;
       lossCtx.stroke();
+
+      // 最小值标注
+      lossCtx.fillStyle = textSec;
+      lossCtx.font = '10px sans-serif';
+      lossCtx.textAlign = 'left';
+      lossCtx.fillText('min: ' + minLoss.toFixed(3), padL, padT + 10);
+      lossCtx.textAlign = 'right';
+      lossCtx.fillText('last: ' + lossHistory[lossHistory.length - 1].toFixed(3), w - padR, padT + 10);
     }
 
-    // 控件绑定
+    // ── 控件 ──
     const hiddenRange = document.getElementById('hiddenRange');
     const hiddenVal = document.getElementById('hiddenVal');
     const lrRange = document.getElementById('lrRange');
@@ -1375,25 +1465,41 @@
     const resetBtn = document.getElementById('dlReset');
 
     hiddenRange.addEventListener('input', () => {
-      hiddenSize = parseInt(hiddenRange.value);
-      hiddenVal.textContent = hiddenSize;
+      const newSize = parseInt(hiddenRange.value);
+      if (newSize !== hiddenSize) {
+        hiddenSize = newSize;
+        hiddenVal.textContent = hiddenSize;
+        // 改变隐藏层大小必须重置权重
+        if (training) stopTraining();
+        initWeights();
+        lossVal.textContent = '—';
+        accVal.textContent = '—';
+        epochProgress.textContent = `0 / ${epochs}`;
+        safeDraw();
+      }
     });
+
     lrRange.addEventListener('input', () => {
       learningRate = parseInt(lrRange.value) / 100;
       lrVal.textContent = learningRate.toFixed(2);
     });
+
     epochRange.addEventListener('input', () => {
       epochs = parseInt(epochRange.value);
       epochVal.textContent = epochs;
-      epochProgress.textContent = `0 / ${epochs}`;
+      epochProgress.textContent = `${Math.min(currentEpoch, epochs)} / ${epochs}`;
     });
 
     function stopTraining() {
       training = false;
-      if (trainTimer) { clearTimeout(trainTimer); trainTimer = null; }
-      trainBtn.textContent = '▶ 开始训练';
+      if (animFrame) {
+        cancelAnimationFrame(animFrame);
+        animFrame = null;
+      }
+      if (trainBtn) trainBtn.textContent = '▶ 开始训练';
     }
 
+    let lastTime = 0;
     function startTraining() {
       if (training) {
         stopTraining();
@@ -1404,22 +1510,40 @@
       }
       training = true;
       trainBtn.textContent = '⏸ 暂停';
+      lastTime = performance.now();
 
-      function step() {
+      function loop(now) {
         if (!training) return;
+        const dt = now - lastTime;
+        // 每帧跑几轮（保证视觉流畅 + 训练速度）
+        const stepsPerFrame = dt < 16 ? 4 : dt < 32 ? 2 : 1;
+        for (let s = 0; s < stepsPerFrame && currentEpoch < epochs; s++) {
+          trainStep();
+        }
+        lastTime = now;
+
+        lossVal.textContent = lossHistory.length > 0
+          ? lossHistory[lossHistory.length - 1].toFixed(4)
+          : '—';
+        // 实时计算当前准确率
+        let correct = 0;
+        for (const d of data) {
+          const { out } = forward(d.x, d.y);
+          if ((out >= 0.5 ? 1 : 0) === d.label) correct++;
+        }
+        accVal.textContent = (correct / data.length * 100).toFixed(1) + '%';
+        epochProgress.textContent = `${currentEpoch} / ${epochs}`;
+
+        draw();
+        drawLossChart();
+
         if (currentEpoch >= epochs) {
           stopTraining();
           return;
         }
-        const { loss, acc } = trainStep();
-        lossVal.textContent = loss.toFixed(4);
-        accVal.textContent = acc.toFixed(1) + '%';
-        epochProgress.textContent = `${currentEpoch} / ${epochs}`;
-        draw();
-        drawLossChart();
-        trainTimer = setTimeout(step, 10);
+        animFrame = requestAnimationFrame(loop);
       }
-      step();
+      animFrame = requestAnimationFrame(loop);
     }
 
     trainBtn.addEventListener('click', startTraining);
@@ -1430,13 +1554,53 @@
       lossVal.textContent = '—';
       accVal.textContent = '—';
       epochProgress.textContent = `0 / ${epochs}`;
-      draw();
-      drawLossChart();
+      safeDraw();
     });
 
-    // 初始绘制
-    draw();
-    drawLossChart();
+    // ── 安全绘制（检查尺寸）──
+    function safeDraw() {
+      try {
+        resizeCanvas();
+        draw();
+        drawLossChart();
+      } catch (e) {
+        console.warn('DL demo draw error:', e);
+      }
+    }
+
+    // ── 初始化 ──
+    function init() {
+      if (inited) return;
+      inited = true;
+      generateData();
+      initWeights();
+      safeDraw();
+    }
+
+    // 等字体和样式都加载完再初始化
+    if (document.readyState === 'complete') {
+      setTimeout(init, 50);
+    } else {
+      window.addEventListener('load', () => setTimeout(init, 50));
+    }
+
+    // 窗口大小变化时重绘
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(safeDraw, 100);
+    });
+
+    // 滚动到可视区域时确保绘制一次
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          safeDraw();
+          observer.disconnect();
+        }
+      }, { threshold: 0.1 });
+      observer.observe(canvas);
+    }
   })();
 </script>
 </body>
