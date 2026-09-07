@@ -1,4 +1,8 @@
-/// 学习引擎 - 管理等级/XP/成就/收藏/统计
+import 'dart:math';
+import 'skill_tree.dart';
+import 'task_system.dart';
+
+/// 学习引擎 - 管理等级/XP/成就/收藏/统计/技能树/任务/背包
 class StudyEngine {
   StudyEngine(); // 默认构造函数
 
@@ -25,6 +29,17 @@ class StudyEngine {
   List<DailyRecord> dailyRecords = [];
   // ── 聊天记录持久化 ──
   Map<String, List<Map<String, dynamic>>> chatHistory = {};
+
+  // ── 技能树系统 ──
+  Map<String, SkillTree> skillTrees = {}; // subject -> SkillTree
+
+  // ── 任务系统 ──
+  TaskManager taskManager = TaskManager();
+
+  // ── 背包系统 ──
+  List<InventoryItem> inventory = [];
+  int systemCredits = 0; // 系统积分（通用货币）
+  String? equippedTitle;  // 当前装备的称号
 
   int get accuracy => totalQ > 0 ? (totalCorrect * 100 ~/ totalQ) : 0;
   int get xpPercent => (xp * 100 ~/ xpNext);
@@ -73,6 +88,8 @@ class StudyEngine {
       xp += 5;
       totalXp += 5;
       _checkLevelUp();
+      // 任务系统记录
+      taskManager.recordCheckIn();
     }
   }
 
@@ -177,6 +194,124 @@ class StudyEngine {
     );
   }
 
+  // ── 技能树操作 ──
+
+  /// 获取学科对应的技能树，没有则从预设生成
+  SkillTree getSkillTree(String subject) {
+    if (skillTrees.containsKey(subject)) {
+      return skillTrees[subject]!;
+    }
+    // 尝试匹配预设
+    final preset = SkillTreePresets.matchPreset(subject);
+    if (preset != null) {
+      skillTrees[subject] = preset;
+      return preset;
+    }
+    // 没有预设的学科，创建一个空的简单技能树
+    final tree = SkillTree(
+      subject: subject,
+      title: subject,
+      description: '探索 $subject 的知识体系',
+      nodes: {},
+    );
+    skillTrees[subject] = tree;
+    return tree;
+  }
+
+  /// 完成一个技能节点，返回新解锁的节点
+  List<SkillNode> completeSkillNode(String subject, String nodeId, double score) {
+    final tree = getSkillTree(subject);
+    final node = tree.nodes[nodeId];
+    if (node == null) return [];
+
+    final wasMastered = node.status.index >= SkillStatus.mastered.index;
+    node.updateMastery(score, isBoss: node.type == SkillType.boss);
+
+    // 记录任务进度
+    if (!wasMastered && node.status.index >= SkillStatus.mastered.index) {
+      taskManager.recordMasteredSkill(1);
+      if (node.type == SkillType.boss) {
+        taskManager.recordBossCleared();
+      }
+    }
+
+    // 检查新解锁
+    final unlocked = tree.checkUnlocks();
+
+    // 检查是否整棵树通关
+    if (tree.isFullyCleared) {
+      taskManager.recordTreeCleared();
+    }
+
+    return unlocked;
+  }
+
+  // ── 背包操作 ──
+
+  /// 添加道具到背包
+  void addItem(String itemId, {int count = 1}) {
+    final existing = inventory.firstWhere(
+      (i) => i.itemId == itemId,
+      orElse: () => InventoryItem(itemId: itemId, count: 0),
+    );
+    if (existing.count == 0) {
+      inventory.add(existing);
+    }
+    existing.count += count;
+  }
+
+  /// 消耗道具，返回是否成功
+  bool useItem(String itemId) {
+    final idx = inventory.indexWhere((i) => i.itemId == itemId && i.count > 0);
+    if (idx == -1) return false;
+    inventory[idx].count--;
+    if (inventory[idx].count <= 0) {
+      inventory.removeAt(idx);
+    }
+    return true;
+  }
+
+  /// 获取道具数量
+  int getItemCount(String itemId) {
+    final item = inventory.firstWhere(
+      (i) => i.itemId == itemId,
+      orElse: () => InventoryItem(itemId: itemId, count: 0),
+    );
+    return item.count;
+  }
+
+  /// 拥有的道具 ID 集合
+  Set<String> get ownedItemIds => inventory.map((i) => i.itemId).toSet();
+
+  /// 执行一次抽奖，返回结果
+  GachaResult? drawGacha() {
+    if (getItemCount('gacha_ticket') <= 0) return null;
+    useItem('gacha_ticket');
+    final rng = DateTime.now().millisecondsSinceEpoch;
+    final result = GachaSystem.drawOne(
+      _seededRandom(rng),
+      ownedItemIds,
+    );
+    addItem(result.itemId, count: result.count);
+    return result;
+  }
+
+  /// 连抽
+  List<GachaResult> drawGachaMany(int n) {
+    final tickets = getItemCount('gacha_ticket');
+    if (tickets < n) return [];
+    for (int i = 0; i < n; i++) useItem('gacha_ticket');
+    final results = GachaSystem.drawMany(n, ownedItemIds);
+    for (final r in results) {
+      addItem(r.itemId, count: r.count);
+    }
+    return results;
+  }
+
+  Random _seededRandom(int seed) => Random(seed);
+
+  // ── 等级/经验 ──
+
   void _checkLevelUp() {
     while (xp >= xpNext) {
       xp -= xpNext;
@@ -201,6 +336,12 @@ class StudyEngine {
       'text': m['text'] ?? '',
       'isAI': m['isAI'] ?? true,
     }).toList())),
+    // 技能树/任务/背包
+    'skillTrees': skillTrees.map((k, v) => MapEntry(k, v.toJson())),
+    'taskManager': taskManager.toJson(),
+    'inventory': inventory.map((i) => i.toJson()).toList(),
+    'systemCredits': systemCredits,
+    'equippedTitle': equippedTitle,
   };
 
   factory StudyEngine.fromJson(Map<String, dynamic> json) {
@@ -240,6 +381,26 @@ class StudyEngine {
         }).toList();
       });
     }
+    // 技能树
+    if (json['skillTrees'] != null) {
+      (json['skillTrees'] as Map).forEach((k, v) {
+        e.skillTrees[k] = SkillTree.fromJson(Map<String, dynamic>.from(v));
+      });
+    }
+    // 任务系统
+    if (json['taskManager'] != null) {
+      e.taskManager = TaskManager.fromJson(
+        Map<String, dynamic>.from(json['taskManager']),
+      );
+    }
+    // 背包
+    if (json['inventory'] != null) {
+      e.inventory = (json['inventory'] as List)
+          .map((i) => InventoryItem.fromJson(Map<String, dynamic>.from(i)))
+          .toList();
+    }
+    e.systemCredits = json['systemCredits'] as int? ?? 0;
+    e.equippedTitle = json['equippedTitle'] as String?;
     return e;
   }
 }

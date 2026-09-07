@@ -13,6 +13,8 @@ import '../providers/app_providers.dart';
 import '../widgets/api_key_guide_sheet.dart';
 import 'learn_screen.dart';
 import 'stats_screen.dart';
+import 'skill_tree_screen.dart';
+import 'gacha_screen.dart';
 import '../version.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -168,6 +170,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 : Icon(Icons.save, color: AppTheme.textSecondary, size: 20),
             tooltip: '保存',
             onPressed: _saving ? null : _saveEngine,
+          ),
+          // ── 任务中心 ──
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.assignment_outlined, color: AppTheme.textSecondary, size: 22),
+                tooltip: '任务中心',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TaskCenterScreen(),
+                    ),
+                  );
+                },
+              ),
+              if (e.taskManager.claimableCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFef4444),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${e.taskManager.claimableCount}',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // ── 商店/抽奖 ──
+          IconButton(
+            icon: Icon(Icons.card_giftcard, color: AppTheme.textSecondary, size: 22),
+            tooltip: '系统商店',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const GachaScreen(),
+                ),
+              );
+            },
           ),
           // ── 统计按钮 ──
           IconButton(
@@ -607,6 +658,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     _saveEngineSync();
                   });
                 },
+                onSkillTree: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SkillTreeScreen(subject: name),
+                    ),
+                  ).then((_) {
+                    _saveEngineSync();
+                  });
+                },
                 onDelete: () => _confirmDeleteSubject(name, e),
               );
             },
@@ -910,6 +971,7 @@ class _SubjectCard extends StatelessWidget {
   final int accuracy;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onSkillTree;
 
   const _SubjectCard({
     required this.name,
@@ -917,6 +979,7 @@ class _SubjectCard extends StatelessWidget {
     this.accuracy = 0,
     required this.onTap,
     required this.onDelete,
+    required this.onSkillTree,
   });
 
   @override
@@ -971,6 +1034,29 @@ class _SubjectCard extends StatelessWidget {
             Text(
               '$qCount 题 · $accuracy%',
               style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: onSkillTree,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.psychology_alt, size: 11, color: AppTheme.accent),
+                    const SizedBox(width: 3),
+                    Text(
+                      '技能树',
+                      style: TextStyle(fontSize: 10, color: AppTheme.accent, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
