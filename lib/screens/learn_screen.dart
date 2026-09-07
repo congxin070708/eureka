@@ -557,7 +557,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('📌 已收藏过'),
-            backgroundColor: Color(0xFF888888),
+            backgroundColor: AppTheme.dimGray,
             duration: Duration(seconds: 1),
           ),
         );
@@ -593,7 +593,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Text('✅ 已保存'),
-                  backgroundColor: const Color(0xFF22c55e),
+                  backgroundColor: AppTheme.success,
                   duration: const Duration(seconds: 1),
                 ),
               );

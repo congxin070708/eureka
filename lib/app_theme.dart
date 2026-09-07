@@ -24,6 +24,13 @@ class AppTheme {
   static Color get taskActive => accent;
   static const Color taskDone = Color(0xFF22c55e);
 
+  // ── 语义状态色(明暗通用,保证对比度) ──
+  static const Color success = Color(0xFF22c55e);  // ✅ 成功/正确/已完成
+  static const Color warning = Color(0xFFf97316);  // ⚠️ 提醒/待复习
+  static const Color error = Color(0xFFef4444);    // ❌ 错误/删除
+  static const Color info = Color(0xFFeab308);     // 💡 提示/经验值
+  static const Color dimGray = Color(0xFF888888);  // ⚪ 中性灰(通用)
+
   // ── 价值颜色分级（从高到低,明暗通用） ──
   static Color valueColor(int score) {
     if (score >= 90) return const Color(0xFFef4444); // 🔴 神级

@@ -65,7 +65,7 @@ class ChatBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.accent.withOpacity(0.2)),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,10 +97,10 @@ class ChatBubble extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.accent.withOpacity(0.15),
+                      color: AppTheme.accent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                          color: AppTheme.accent.withOpacity(0.3)),
+                          color: AppTheme.accent.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

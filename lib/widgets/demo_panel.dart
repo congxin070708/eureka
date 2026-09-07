@@ -93,7 +93,7 @@ class DemoPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
             color: kp.isMastered
-                ? const Color(0xFF22c55e).withOpacity(0.4)
+                ? const Color(0xFF22c55e).withValues(alpha: 0.4)
                 : AppTheme.border),
       ),
       child: Column(
