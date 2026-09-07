@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'prompts.dart';
 
 /// API调用结果封装
 class ApiResult {
@@ -176,79 +177,133 @@ class ApiService {
     }
   }
 
-  /// startSubject 改为输出阶梯书单+学习路径，学习模式真正生效
+  /// startSubject 生成阶梯书单+学习路径
   static Future<ApiResult> startSubject(String subject, {String extraHint = '', String mode = '深度'}) async {
     // 随机种子让每次推荐不同的书
     final seeds = ['入门推荐看这本', '经典必读', '过来人强推', '口碑最好的', '豆瓣高分'];
     final seed = seeds[DateTime.now().millisecondsSinceEpoch % seeds.length];
+    final modePrompt = EurekaPrompts.modeDescription(mode);
 
-    // 学习模式真正影响 prompt
-    String modePrompt;
-    if (mode == '速学') {
-      modePrompt = '用户选择速学模式：只给1个阶段、最多2本书，重点给出最核心的5个要点和3-4个速学话题，节奏要快。';
-    } else if (mode == '挑战') {
-      modePrompt = '用户选择挑战模式：不要先讲基础，直接出一道有难度的挑战题（放在"challenge"字段，格式{"q":"题目","points":["要点"],"hint":"提示"}），书单照常给但阶段从实战/进阶开始。';
-    } else {
-      modePrompt = '用户选择深度模式：给出完整分阶段书单(3-4个阶段)和5-8个学习话题，讲解要系统深入。';
-    }
+    final userPrompt = '''
+学生想学「$subject」。$extraHint
 
-    final r = await _call('你是AI导师，回答简洁精准，只输出纯JSON',
-      '学生想学「$subject」。$extraHint\n$modePrompt\n'
-      '请生成一份完整学习路径，用JSON回复：'
-      '1)简短欢迎语 2)分阶段书单(按模式要求，每阶段1-2本，含书名+作者+价值系数1-100+推荐理由) '
-      '注意：每次推荐的书要不同，这次重点推荐$seed的教材 '
-      '价值系数根据书籍难度和重要性评分：90-100神级(红色)、70-89优质(橙色)、50-69中等(黄色)、30-49基础(绿色)、0-29拓展(灰色) '
-      '3)列出学习话题。'
-      '格式{"welcome":"...","stages":[{"level":"入门/进阶/精通/实战","books":[{"name":"...","author":"...","value":85,"reason":"...","tag":"$seed"}]}],"topics":["..."]} 纯JSON。不要问用户想学哪个，直接出第一个话题的讲解。',
-      cacheKey: 'start_${subject}_$mode');
+$modePrompt
+
+请生成一份完整的学习路径,严格用 JSON 输出:
+
+1) welcome: 一句热情的欢迎语,点明这个学科的价值和学习它的意义(不超过50字)
+2) stages: 分阶段书单(根据模式要求的阶段数),每阶段 1-2 本书:
+   - name: 书名
+   - author: 作者
+   - value: 价值系数(1-100),90-100神级、70-89优质、50-69中等、30-49基础、0-29拓展
+   - reason: 为什么推荐这本书(20字以内)
+   - tag: 推荐标签(这次用"$seed")
+3) topics: 学习话题列表(根据模式调整数量)
+
+注意:
+- 每次推荐的书要不一样,这次重点推荐$seed的教材
+- 不要问用户想学哪个,直接生成第一条话题的内容
+- 所有内容用简体中文
+
+格式示例:
+{"welcome":"...","stages":[{"level":"入门","books":[{"name":"...","author":"...","value":85,"reason":"...","tag":"$seed"}]}],"topics":["..."]}
+只输出纯 JSON,不要加任何其他文字。''';
+
+    final r = await _call(EurekaPrompts.systemTutor, userPrompt,
+        cacheKey: 'start_${subject}_$mode');
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
-  /// 讲解，支持学习模式和上下文记忆
+  /// 讲解知识点
   static Future<ApiResult> teach(String topic,
       {String mode = '深度', List<Map<String, String>>? history}) async {
-    String modePrompt;
-    if (mode == '速学') {
-      modePrompt = '讲解要极度精炼，200字以内，要点不超过3个，每点一句话。';
-    } else if (mode == '挑战') {
-      modePrompt = '讲解可以深入一些，要点要覆盖难点和易错点，思考题要有挑战性。';
-    } else {
-      modePrompt = '讲解要通俗系统，覆盖核心概念和关键细节。';
-    }
-    final r = await _call('你是AI导师，回答简洁精准，只输出纯JSON',
-      '$modePrompt 用200字以内通俗讲解「$topic」。必须用JSON：{"explain":"讲解","points":["要点1","要点2"],"question":"一道思考题"} 纯JSON',
-      history: history);
+    final modePrompt = EurekaPrompts.modeDescription(mode);
+    final userPrompt = '''
+$modePrompt
+
+请用通俗的方式讲解「$topic」。
+
+输出 JSON 格式:
+- explain: 核心讲解(根据模式控制长度,用自己的话讲,不要照本宣科)
+- points: 3-5 个关键要点(每个要点一句话,简洁有力)
+- question: 一道思考题(让学生用自己的话回答,检验是否真的理解了)
+- analogy: 一个生活化的类比/例子(帮助理解抽象概念)
+
+只输出纯 JSON,不要加其他说明。''';
+    final r = await _call(EurekaPrompts.systemTutor, userPrompt, history: history);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
+  /// 生成考题
   static Future<ApiResult> generateQuestion(String topic, {String mode = '深度'}) async {
-    String diff;
-    if (mode == '挑战') {
-      diff = '出有难度的挑战题，考察理解和应用，不要送分题。';
-    } else if (mode == '速学') {
-      diff = '出基础概念题，检验是否掌握核心要点。';
-    } else {
-      diff = '出中等难度的概念题。';
-    }
-    final r = await _call('你是AI导师，只输出纯JSON',
-      '$diff 出一道关于「$topic」的概念题，让学生用自己的话回答。JSON：{"q":"题目","points":["关键要点1","关键要点2","关键要点3"],"hint":"提示"} 纯JSON');
+    final modePrompt = EurekaPrompts.modeDescription(mode);
+    final userPrompt = '''
+$modePrompt
+
+请出一道关于「$topic」的概念题,让学生用自己的话回答。
+
+要求:
+- 题目要明确,不能有歧义
+- 不是选择题,是开放式问答题
+- 考察的是理解,不是死记硬背
+
+输出 JSON 格式:
+- q: 题目
+- points: 3-5 个评分关键要点(答对一个要点得相应分数)
+- hint: 提示(学生卡住时可以看,不要直接给答案)
+- difficulty: 难度等级(简单/中等/困难)
+
+只输出纯 JSON。''';
+    final r = await _call(EurekaPrompts.systemTutor, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
+  /// 评分学生答案
   static Future<ApiResult> scoreAnswer(String question, String answer) async {
-    final r = await _call('你是严格的AI导师，只输出纯JSON',
-      '问题：$question\n学生回答：$answer\n请评分0-100并给出简短反馈和建议。\n注意：如果学生回答与问题完全无关（闲聊、答非所问、复读题目），score必须为0，feedback写明"回答与问题无关"。JSON：{"score":数字,"feedback":"反馈","suggest":"建议","missed":["遗漏要点"]} 纯JSON');
+    final userPrompt = '''
+题目: $question
+
+学生回答: $answer
+
+请严格评分并给出反馈。
+
+评分标准:
+- 0-30 分:基本没答对,或者答非所问
+- 31-60 分:只答对了部分要点,理解不完整
+- 61-80 分:大部分要点都答对了,有小疏漏
+- 81-95 分:回答得很好,基本都对了
+- 96-100 分:非常完美,甚至有自己的见解
+
+输出 JSON 格式:
+- score: 0-100 的整数
+- feedback: 总体评价(先肯定对的地方,再指出不足,语气鼓励)
+- suggest: 下一步学习建议(一句话)
+- missed: 遗漏的要点列表(如果全答对了就放空数组)
+- correct: 学生答对的要点列表
+
+只输出纯 JSON。''';
+    final r = await _call(EurekaPrompts.systemStrictGrader, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
-  /// 跳过问题：直接给出参考答案和讲解
+  /// 跳过问题：给出参考答案
   static Future<ApiResult> skipAnswer(String question) async {
-    final r = await _call('你是AI导师，回答简洁精准，只输出纯JSON',
-      '学生跳过了这道题：$question\n请给出参考答案和简短解析，让学生看懂。JSON：{"answer":"参考答案","explain":"解析"} 纯JSON');
+    final userPrompt = '''
+学生跳过了这道题: $question
+
+请给出:
+- answer: 参考答案(完整、准确)
+- explain: 解析(讲清楚为什么,帮助学生理解)
+- keyPoints: 这道题考察的核心知识点列表
+
+语气要鼓励,告诉学生跳过也没关系,看懂了下次就会了。
+
+只输出纯 JSON。''';
+    final r = await _call(EurekaPrompts.systemTutor, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }

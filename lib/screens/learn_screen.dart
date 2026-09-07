@@ -6,6 +6,7 @@ import '../api_service.dart';
 import '../app_theme.dart';
 import '../file_storage_service.dart';
 import '../review_scheduler.dart';
+import '../prompts.dart';
 import '../providers/app_providers.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/learn_input_bar.dart';
@@ -234,8 +235,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     _topic = topic;
     final engine = ref.read(studyEngineProvider);
     final mode = engine.studyMode;
-    final kpType = mode == '速学' ? 'memory'
-        : (mode == '挑战' ? 'procedure' : 'concept');
+    final kpType = EurekaPrompts.knowledgeTypeLabel(mode);
     engine.getOrCreateKnowledgePoint(
       widget.subject.trim(), topic.trim(),
       type: kpType, importance: _subjectImportance,
@@ -295,22 +295,46 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     String feedback = data['feedback'] ?? '';
     String suggest = data['suggest'] ?? '';
     String missed = '';
-    if (data['missed'] != null) {
+    if (data['missed'] != null && (data['missed'] as List).isNotEmpty) {
       missed = (data['missed'] as List).join('、');
+    }
+    String correctPoints = '';
+    if (data['correct'] != null && (data['correct'] as List).isNotEmpty) {
+      correctPoints = (data['correct'] as List).join('、');
     }
 
     String scoreEmoji;
-    if (score >= 90) scoreEmoji = '🌟';
-    else if (score >= 70) scoreEmoji = '🔥';
-    else if (score >= 50) scoreEmoji = '⭐';
-    else scoreEmoji = '📗';
+    String scoreLabel;
+    String encourageMsg;
+    if (score >= 90) {
+      scoreEmoji = '🌟';
+      scoreLabel = '神级';
+      encourageMsg = '太棒了！你已经完全掌握了这个知识点 🎉';
+    } else if (score >= 80) {
+      scoreEmoji = '🔥';
+      scoreLabel = '优秀';
+      encourageMsg = '答得很好！差一点就完美了，继续保持！';
+    } else if (score >= 60) {
+      scoreEmoji = '⭐';
+      scoreLabel = '及格';
+      encourageMsg = '还不错！再巩固一下薄弱点就能更上一层楼。';
+    } else if (score >= 30) {
+      scoreEmoji = '📗';
+      scoreLabel = '加油';
+      encourageMsg = '别灰心，回顾一下要点，我们再来一次！';
+    } else {
+      scoreEmoji = '💪';
+      scoreLabel = '继续努力';
+      encourageMsg = '没关系，学习就是不断试错的过程。先看看解析，再试一次！';
+    }
 
     String msg = '📊 评分结果\n\n';
-    msg += '$scoreEmoji 得分：$score/100\n';
-    msg += '   (${score >= 90 ? '神级' : score >= 70 ? '优质' : score >= 50 ? '中等' : '基础'})\n\n';
-    msg += '📝 反馈：$feedback\n\n';
+    msg += '$scoreEmoji 得分：$score / 100  ($scoreLabel)\n\n';
+    msg += '📝 $feedback\n\n';
+    if (correctPoints.isNotEmpty) msg += '✅ 答对了：$correctPoints\n\n';
+    if (missed.isNotEmpty) msg += '📌 还需要掌握：$missed\n\n';
     if (suggest.isNotEmpty) msg += '💡 建议：$suggest\n';
-    if (missed.isNotEmpty) msg += '\n📌 遗漏要点：$missed\n';
+    msg += '\n$encourageMsg';
 
     final kp = engine.findKnowledgePoint(widget.subject.trim(), _topic.trim());
     if (kp != null) {
@@ -416,12 +440,17 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     }
     String msg = '📖 **${text}**\n\n';
     msg += '${data['explain'] ?? ''}\n\n';
-    msg += '**要点：**\n';
+    // 生活化类比（新字段，有就显示）
+    if (data['analogy'] != null && data['analogy'].toString().isNotEmpty) {
+      msg += '💡 类比理解：${data['analogy']}\n\n';
+    }
+    msg += '**🎯 核心要点：**\n';
     if (data['points'] != null) {
       for (final p in data['points']) {
-        msg += '• $p\n';
+        msg += '  • $p\n';
       }
     }
+    msg += '\n🤔 思考题：${data['question'] ?? '你理解了吗？用自己的话说说看'}';
     _updateLast(msg);
     if (isFollowUp) {
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -448,6 +477,14 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     final explain = data['explain'] ?? '';
     String msg = '📚 **参考答案**\n\n$answer\n';
     if (explain.isNotEmpty) msg += '\n📖 解析：$explain\n';
+    // 核心知识点（新字段）
+    if (data['keyPoints'] != null && (data['keyPoints'] as List).isNotEmpty) {
+      msg += '\n🎯 本题核心知识点：\n';
+      for (final kp in data['keyPoints']) {
+        msg += '  • $kp\n';
+      }
+    }
+    msg += '\n💪 没关系，跳过很正常，看懂了下次就会了！';
     _updateLast(msg);
     _answering = false;
     Future.delayed(const Duration(milliseconds: 800), () {
