@@ -529,6 +529,146 @@
     text-align: right;
   }
 
+  /* ===== 深度学习交互演示 ===== */
+  .dl-demo-section {
+    padding: 80px 32px;
+    background: var(--surface);
+  }
+  .dl-demo-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .dl-demo-container {
+    margin-top: 48px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .dl-demo-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .dl-demo-title {
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dl-demo-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .dl-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dl-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .dl-btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    color: white;
+    border: none;
+  }
+  .dl-btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(91, 75, 213, 0.35);
+  }
+
+  .dl-demo-body {
+    display: flex;
+    gap: 0;
+  }
+  .dl-canvas-wrap {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nn-canvas {
+    width: 100%;
+    max-width: 500px;
+    height: 380px;
+  }
+  .dl-side-panel {
+    width: 300px;
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    background: var(--surface);
+  }
+  .dl-side-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+  .dl-param {
+    margin-bottom: 14px;
+  }
+  .dl-param label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .dl-param label span:last-child {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .dl-param input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .dl-metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--surface-light);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .dl-metric .val {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .dl-metric .val.loss {
+    color: var(--error);
+  }
+  .dl-metric .val.acc {
+    color: var(--success);
+  }
+  .dl-loss-chart {
+    height: 80px;
+    width: 100%;
+    margin-top: 8px;
+    background: var(--surface-light);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  @media (max-width: 800px) {
+    .dl-demo-body { flex-direction: column; }
+    .dl-side-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  }
+
   /* ===== 数据展示 ===== */
   .stats {
     padding: 80px 32px;
@@ -630,6 +770,7 @@
       <a href="#features">功能特性</a>
       <a href="#flow">学习流程</a>
       <a href="#demo">在线演示</a>
+      <a href="#dl-demo">深度学习</a>
       <a href="https://github.com/congxin070708/eureka" target="_blank">GitHub</a>
       <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
       <a href="#download" class="cta-btn">立即体验</a>
@@ -808,6 +949,72 @@
   </div>
 </section>
 
+<!-- ===== 深度学习交互演示 ===== -->
+<section class="dl-demo-section" id="dl-demo">
+  <div class="dl-demo-inner">
+    <div class="section-title">
+      <h2>🧠 深度学习交互教学</h2>
+      <p>拖动滑块调节参数，实时观察神经网络如何学习 — 用尤里卡，AI 也能直观理解</p>
+    </div>
+    <div class="dl-demo-container">
+      <div class="dl-demo-header">
+        <div class="dl-demo-title">
+          <span>🔬</span>
+          神经网络 · 二分类实验
+        </div>
+        <div class="dl-demo-controls">
+          <button class="dl-btn" id="dlReset">重置</button>
+          <button class="dl-btn primary" id="dlTrain">▶ 开始训练</button>
+        </div>
+      </div>
+      <div class="dl-demo-body">
+        <div class="dl-canvas-wrap">
+          <canvas id="nnCanvas" class="nn-canvas"></canvas>
+        </div>
+        <div class="dl-side-panel">
+          <div class="dl-side-title">⚙️ 网络参数</div>
+          <div class="dl-param">
+            <label><span>隐藏层神经元</span><span id="hiddenVal">8</span></label>
+            <input type="range" id="hiddenRange" min="2" max="32" value="8" step="1">
+          </div>
+          <div class="dl-param">
+            <label><span>学习率</span><span id="lrVal">0.1</span></label>
+            <input type="range" id="lrRange" min="1" max="100" value="10" step="1">
+          </div>
+          <div class="dl-param">
+            <label><span>训练轮数</span><span id="epochVal">200</span></label>
+            <input type="range" id="epochRange" min="50" max="1000" value="200" step="50">
+          </div>
+
+          <div class="dl-side-title" style="margin-top: 20px;">📊 训练指标</div>
+          <div class="dl-metric">
+            <span>损失 Loss</span>
+            <span class="val loss" id="lossVal">—</span>
+          </div>
+          <div class="dl-metric">
+            <span>准确率</span>
+            <span class="val acc" id="accVal">—</span>
+          </div>
+          <div class="dl-metric">
+            <span>训练轮次</span>
+            <span class="val" id="epochProgress">0 / 200</span>
+          </div>
+
+          <div class="dl-side-title" style="margin-top: 20px;">📈 损失曲线</div>
+          <canvas id="lossChart" class="dl-loss-chart"></canvas>
+
+          <div style="margin-top: 16px; padding: 10px; background: rgba(91,75,213,0.08); border-radius: 8px; font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+            💡 <strong style="color: var(--accent);">尤里卡学习提示：</strong><br>
+            神经元越多 → 拟合能力越强，但容易过拟合<br>
+            学习率太大 → 训练震荡不收敛<br>
+            学习率太小 → 学习速度太慢
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===== 数据展示 ===== -->
 <section class="stats">
   <div class="stats-inner">
@@ -898,6 +1105,339 @@
       item.classList.add('active');
     });
   });
+
+  // ===== 深度学习交互演示 =====
+  (function() {
+    const canvas = document.getElementById('nnCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const lossCanvas = document.getElementById('lossChart');
+    const lossCtx = lossCanvas.getContext('2d');
+
+    // 设置画布尺寸
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      canvas._w = rect.width;
+      canvas._h = rect.height;
+
+      const lr = lossCanvas.getBoundingClientRect();
+      lossCanvas.width = lr.width * window.devicePixelRatio;
+      lossCanvas.height = lr.height * window.devicePixelRatio;
+      lossCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      lossCanvas._w = lr.width;
+      lossCanvas._h = lr.height;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', () => { resizeCanvas(); draw(); drawLossChart(); });
+
+    // 生成二分类数据集(双月形状)
+    let data = [];
+    function generateData() {
+      data = [];
+      const n = 80;
+      for (let i = 0; i < n; i++) {
+        // 类别 0: 上半月
+        const angle = Math.PI * i / n + Math.PI * 0.1;
+        const r = 0.35 + (Math.random() - 0.5) * 0.08;
+        data.push({
+          x: 0.5 + r * Math.cos(angle),
+          y: 0.35 + r * Math.sin(angle) * 0.8,
+          label: 0
+        });
+        // 类别 1: 下半月
+        const angle2 = Math.PI * i / n + Math.PI * 1.1;
+        const r2 = 0.35 + (Math.random() - 0.5) * 0.08;
+        data.push({
+          x: 0.5 + r2 * Math.cos(angle2),
+          y: 0.65 + r2 * Math.sin(angle2) * 0.8,
+          label: 1
+        });
+      }
+    }
+    generateData();
+
+    // 神经网络
+    let hiddenSize = 8;
+    let learningRate = 0.1;
+    let epochs = 200;
+    let weights1 = []; // 输入层 -> 隐藏层
+    let bias1 = [];
+    let weights2 = []; // 隐藏层 -> 输出层
+    let bias2 = 0;
+    let lossHistory = [];
+    let currentEpoch = 0;
+    let training = false;
+    let trainTimer = null;
+
+    function initWeights() {
+      weights1 = [];
+      bias1 = [];
+      for (let i = 0; i < hiddenSize; i++) {
+        weights1.push([Math.random() * 2 - 1, Math.random() * 2 - 1]);
+        bias1.push(Math.random() * 2 - 1);
+      }
+      weights2 = [];
+      for (let i = 0; i < hiddenSize; i++) {
+        weights2.push(Math.random() * 2 - 1);
+      }
+      bias2 = Math.random() * 2 - 1;
+      lossHistory = [];
+      currentEpoch = 0;
+    }
+    initWeights();
+
+    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+    function sigmoidDeriv(x) { return x * (1 - x); }
+    function relu(x) { return Math.max(0, x); }
+    function reluDeriv(x) { return x > 0 ? 1 : 0; }
+
+    function forward(x1, x2) {
+      const hidden = [];
+      for (let i = 0; i < hiddenSize; i++) {
+        const z = weights1[i][0] * x1 + weights1[i][1] * x2 + bias1[i];
+        hidden.push(sigmoid(z));
+      }
+      let out = bias2;
+      for (let i = 0; i < hiddenSize; i++) {
+        out += weights2[i] * hidden[i];
+      }
+      out = sigmoid(out);
+      return { hidden, out };
+    }
+
+    function trainStep() {
+      let totalLoss = 0;
+      let correct = 0;
+
+      for (const d of data) {
+        const { hidden, out } = forward(d.x, d.y);
+        const pred = out > 0.5 ? 1 : 0;
+        if (pred === d.label) correct++;
+
+        const loss = -(d.label * Math.log(out + 1e-10) + (1 - d.label) * Math.log(1 - out + 1e-10));
+        totalLoss += loss;
+
+        // 反向传播
+        const dOut = out - d.label;
+
+        for (let i = 0; i < hiddenSize; i++) {
+          const dHidden = dOut * weights2[i] * sigmoidDeriv(hidden[i]);
+          weights2[i] -= learningRate * dOut * hidden[i];
+          weights1[i][0] -= learningRate * dHidden * d.x;
+          weights1[i][1] -= learningRate * dHidden * d.y;
+          bias1[i] -= learningRate * dHidden;
+        }
+        bias2 -= learningRate * dOut;
+      }
+
+      totalLoss /= data.length;
+      const acc = correct / data.length * 100;
+      lossHistory.push(totalLoss);
+      currentEpoch++;
+
+      return { loss: totalLoss, acc };
+    }
+
+    function getAccentColor() {
+      const styles = getComputedStyle(document.documentElement);
+      return styles.getPropertyValue('--accent').trim() || '#5b4bd5';
+    }
+    function getSuccessColor() {
+      const styles = getComputedStyle(document.documentElement);
+      return styles.getPropertyValue('--success').trim() || '#22c55e';
+    }
+    function getErrorColor() {
+      const styles = getComputedStyle(document.documentElement);
+      return styles.getPropertyValue('--error').trim() || '#ef4444';
+    }
+    function getTextColor() {
+      const styles = getComputedStyle(document.documentElement);
+      return styles.getPropertyValue('--text-secondary').trim() || '#6b6b80';
+    }
+
+    function draw() {
+      const w = canvas._w;
+      const h = canvas._h;
+      ctx.clearRect(0, 0, w, h);
+
+      const padding = 20;
+      const plotW = w - padding * 2;
+      const plotH = h - padding * 2;
+
+      // 绘制决策边界(热力图)
+      const resolution = 40;
+      for (let i = 0; i < resolution; i++) {
+        for (let j = 0; j < resolution; j++) {
+          const x = (i + 0.5) / resolution;
+          const y = (j + 0.5) / resolution;
+          const { out } = forward(x, y);
+          const alpha = Math.abs(out - 0.5) * 2 * 0.15;
+          const px = padding + i / resolution * plotW;
+          const py = padding + j / resolution * plotH;
+          const pw = plotW / resolution + 1;
+          const ph = plotH / resolution + 1;
+          if (out > 0.5) {
+            ctx.fillStyle = `rgba(91, 75, 213, ${alpha})`;
+          } else {
+            ctx.fillStyle = `rgba(249, 115, 22, ${alpha})`;
+          }
+          ctx.fillRect(px, py, pw, ph);
+        }
+      }
+
+      // 绘制数据点
+      for (const d of data) {
+        const px = padding + d.x * plotW;
+        const py = padding + d.y * plotH;
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        if (d.label === 0) {
+          ctx.fillStyle = '#f97316';
+        } else {
+          ctx.fillStyle = '#5b4bd5';
+        }
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1.5;
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 坐标轴
+      ctx.strokeStyle = getTextColor() + '33';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, padding);
+      ctx.lineTo(padding, padding + plotH);
+      ctx.lineTo(padding + plotW, padding + plotH);
+      ctx.stroke();
+    }
+
+    function drawLossChart() {
+      const w = lossCanvas._w;
+      const h = lossCanvas._h;
+      lossCtx.clearRect(0, 0, w, h);
+
+      if (lossHistory.length < 2) return;
+
+      const padding = 4;
+      const pw = w - padding * 2;
+      const ph = h - padding * 2;
+
+      const maxLoss = Math.max(...lossHistory);
+      const minLoss = Math.min(...lossHistory);
+      const range = maxLoss - minLoss || 0.1;
+
+      // 渐变填充
+      const gradient = lossCtx.createLinearGradient(0, padding, 0, h - padding);
+      const accent = getAccentColor();
+      gradient.addColorStop(0, accent + '44');
+      gradient.addColorStop(1, accent + '00');
+
+      lossCtx.beginPath();
+      lossCtx.moveTo(padding, h - padding);
+      for (let i = 0; i < lossHistory.length; i++) {
+        const x = padding + (i / (lossHistory.length - 1)) * pw;
+        const y = padding + (1 - (lossHistory[i] - minLoss) / range) * ph;
+        lossCtx.lineTo(x, y);
+      }
+      lossCtx.lineTo(padding + pw, h - padding);
+      lossCtx.closePath();
+      lossCtx.fillStyle = gradient;
+      lossCtx.fill();
+
+      // 曲线
+      lossCtx.beginPath();
+      for (let i = 0; i < lossHistory.length; i++) {
+        const x = padding + (i / (lossHistory.length - 1)) * pw;
+        const y = padding + (1 - (lossHistory[i] - minLoss) / range) * ph;
+        if (i === 0) lossCtx.moveTo(x, y);
+        else lossCtx.lineTo(x, y);
+      }
+      lossCtx.strokeStyle = accent;
+      lossCtx.lineWidth = 2;
+      lossCtx.stroke();
+    }
+
+    // 控件绑定
+    const hiddenRange = document.getElementById('hiddenRange');
+    const hiddenVal = document.getElementById('hiddenVal');
+    const lrRange = document.getElementById('lrRange');
+    const lrVal = document.getElementById('lrVal');
+    const epochRange = document.getElementById('epochRange');
+    const epochVal = document.getElementById('epochVal');
+    const lossVal = document.getElementById('lossVal');
+    const accVal = document.getElementById('accVal');
+    const epochProgress = document.getElementById('epochProgress');
+    const trainBtn = document.getElementById('dlTrain');
+    const resetBtn = document.getElementById('dlReset');
+
+    hiddenRange.addEventListener('input', () => {
+      hiddenSize = parseInt(hiddenRange.value);
+      hiddenVal.textContent = hiddenSize;
+    });
+    lrRange.addEventListener('input', () => {
+      learningRate = parseInt(lrRange.value) / 100;
+      lrVal.textContent = learningRate.toFixed(2);
+    });
+    epochRange.addEventListener('input', () => {
+      epochs = parseInt(epochRange.value);
+      epochVal.textContent = epochs;
+      epochProgress.textContent = `0 / ${epochs}`;
+    });
+
+    function stopTraining() {
+      training = false;
+      if (trainTimer) { clearTimeout(trainTimer); trainTimer = null; }
+      trainBtn.textContent = '▶ 开始训练';
+    }
+
+    function startTraining() {
+      if (training) {
+        stopTraining();
+        return;
+      }
+      if (currentEpoch >= epochs) {
+        initWeights();
+      }
+      training = true;
+      trainBtn.textContent = '⏸ 暂停';
+
+      function step() {
+        if (!training) return;
+        if (currentEpoch >= epochs) {
+          stopTraining();
+          return;
+        }
+        const { loss, acc } = trainStep();
+        lossVal.textContent = loss.toFixed(4);
+        accVal.textContent = acc.toFixed(1) + '%';
+        epochProgress.textContent = `${currentEpoch} / ${epochs}`;
+        draw();
+        drawLossChart();
+        trainTimer = setTimeout(step, 10);
+      }
+      step();
+    }
+
+    trainBtn.addEventListener('click', startTraining);
+    resetBtn.addEventListener('click', () => {
+      stopTraining();
+      generateData();
+      initWeights();
+      lossVal.textContent = '—';
+      accVal.textContent = '—';
+      epochProgress.textContent = `0 / ${epochs}`;
+      draw();
+      drawLossChart();
+    });
+
+    // 初始绘制
+    draw();
+    drawLossChart();
+  })();
 </script>
 </body>
 </html>
