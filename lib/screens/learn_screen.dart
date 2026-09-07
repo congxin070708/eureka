@@ -12,6 +12,8 @@ import '../providers/app_providers.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/learn_input_bar.dart';
 import '../widgets/demo_panel.dart';
+import '../widgets/level_up_overlay.dart';
+import '../skill_tree.dart';
 import '../utils/input_validation.dart';
 import 'stats_screen.dart';
 
@@ -20,7 +22,15 @@ import 'stats_screen.dart';
 /// 状态管理通过 Riverpod(studyEngineProvider) 共享引擎数据
 class LearnScreen extends ConsumerStatefulWidget {
   final String subject;
-  const LearnScreen({super.key, required this.subject});
+  final String? skillNodeId;   // 对应的技能节点 ID
+  final bool isBossMode;      // Boss 关模式（应用题 + 多解法加分）
+
+  const LearnScreen({
+    super.key,
+    required this.subject,
+    this.skillNodeId,
+    this.isBossMode = false,
+  });
 
   @override
   ConsumerState<LearnScreen> createState() => _LearnScreenState();
@@ -264,6 +274,13 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       type: kpType, importance: _subjectImportance,
     );
     _addMsg('💡', '正在出题...', isAI: true);
+
+    // Boss 模式：出应用题
+    if (widget.isBossMode) {
+      await _askBossQuestion(topic);
+      return;
+    }
+
     final result = await ApiService.generateQuestion(topic, mode: mode);
     if (!result.success) {
       _updateLast('❌ 出题失败\n${result.error}');
@@ -281,6 +298,188 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     String msg = '💡 **思考题**\n\n$_lastQ\n';
     if (hint.isNotEmpty) msg += '\n💬 提示：$hint';
     _updateLast(msg);
+  }
+
+  /// Boss 模式：出真实场景应用题
+  Future<void> _askBossQuestion(String topic) async {
+    final prompt = '''
+请围绕「$topic」这个知识点，出一道 Boss 级应用题。
+${EurekaPrompts.bossQuestionPrompt}''';
+
+    final result = await ApiService.chat(
+      prompt,
+      systemPrompt: '你是一位擅长出应用题的老师，题目要有代入感。',
+    );
+
+    if (!result.success) {
+      _updateLast('❌ 出题失败\n${result.error}');
+      _answering = false;
+      return;
+    }
+
+    final data = ApiService.parseJson(result);
+    if (data == null) {
+      _updateLast('❌ AI返回格式异常\n\n${result.content}');
+      _answering = false;
+      return;
+    }
+
+    final title = data['title']?.toString() ?? 'Boss 挑战';
+    final scenario = data['scenario']?.toString() ?? '';
+    final question = data['question']?.toString() ?? '';
+    final kps = (data['knowledgePoints'] as List?)?.cast<String>() ?? [];
+    _lastQ = question;
+
+    String msg = '👹 **Boss 挑战：$title**\n\n';
+    if (scenario.isNotEmpty) {
+      msg += '📖 $scenario\n\n';
+    }
+    msg += '❓ **问题**\n$question\n\n';
+    if (kps.isNotEmpty) {
+      msg += '📌 考察知识点：${kps.join('、')}\n\n';
+    }
+    msg += '💡 这道题有多种解法，用越巧妙的方法得分越高！';
+
+    _updateLast(msg);
+  }
+
+  /// Boss 模式评分：多解法加分
+  Future<void> _scoreBossAnswer(String answer, dynamic engine) async {
+    final prompt = '''
+题目：$_lastQ
+
+学生的回答/解法：
+$answer
+
+${EurekaPrompts.bossGradingPrompt}''';
+
+    final result = await ApiService.chat(
+      prompt,
+      systemPrompt: EurekaPrompts.systemStrictGrader,
+    );
+
+    if (!result.success) {
+      _updateLast('❌ 评分失败\n${result.error}');
+      setState(() {
+        _answering = false;
+        _loading = false;
+      });
+      return;
+    }
+
+    final data = ApiService.parseJson(result);
+    if (data == null) {
+      _updateLast('❌ AI评分格式异常\n\n${result.content}');
+      setState(() {
+        _answering = false;
+        _loading = false;
+      });
+      return;
+    }
+
+    final score = (data['score'] as num?)?.toInt() ?? 0;
+    final baseScore = (data['baseScore'] as num?)?.toInt() ?? 0;
+    final bonusScore = (data['bonusScore'] as num?)?.toInt() ?? 0;
+    final feedback = data['feedback']?.toString() ?? '';
+    final bonusReasons = (data['bonusReasons'] as List?)?.cast<String>() ?? [];
+    final methodUsed = data['methodUsed']?.toString() ?? '';
+    final isClever = data['isClever'] as bool? ?? false;
+    final bestMethod = data['bestMethod']?.toString() ?? '';
+    final mastered = data['mastered'] as bool? ?? false;
+
+    // 计算展示用的分数（超过100分显示为100+）
+    final displayScore = score > 120 ? 120 : score;
+
+    String scoreEmoji;
+    String scoreLabel;
+    if (score >= 100) {
+      scoreEmoji = '🏆';
+      scoreLabel = '完美通关';
+    } else if (score >= 80) {
+      scoreEmoji = '🌟';
+      scoreLabel = '优秀通关';
+    } else if (score >= 60) {
+      scoreEmoji = '⭐';
+      scoreLabel = '勉强通过';
+    } else {
+      scoreEmoji = '💪';
+      scoreLabel = '挑战失败';
+    }
+
+    String msg = '👹 **Boss 战结果**\n\n';
+    msg += '$scoreEmoji 得分：$displayScore / 100';
+    if (bonusScore > 0) msg += ' (+$bonusScore 额外加分)';
+    msg += '  [$scoreLabel]\n\n';
+
+    if (methodUsed.isNotEmpty) {
+      msg += '📝 使用方法：$methodUsed\n';
+      if (isClever) msg += '✨ 巧妙解法！\n';
+      msg += '\n';
+    }
+
+    if (bonusReasons.isNotEmpty) {
+      msg += '🎁 额外加分：\n';
+      for (final r in bonusReasons) {
+        msg += '  · $r\n';
+      }
+      msg += '\n';
+    }
+
+    msg += '💬 $feedback\n\n';
+
+    if (bestMethod.isNotEmpty && !isClever) {
+      msg += '💡 推荐更优解法：\n$bestMethod\n\n';
+    }
+
+    if (mastered) {
+      msg += '🎉 Boss 已击败！你已经完全掌握了这个知识点。';
+    } else {
+      msg += '📝 再来一次？Boss 还在等你挑战！';
+    }
+
+    // 更新掌握度（Boss 分数需要按比例换算到 1.0）
+    final normalizedScore = (score / 100.0).clamp(0.0, 1.2);
+    final kp = engine.findKnowledgePoint(widget.subject.trim(), _topic.trim());
+    if (kp != null) {
+      kp.recordAttempt(mastered);
+      if (mastered) kp.qualitativeMastery = true;
+    }
+
+    // 更新技能树
+    final tree = engine.getSkillTree(widget.subject);
+    if (widget.skillNodeId != null) {
+      engine.completeSkillNode(widget.subject, widget.skillNodeId!,
+          normalizedScore.clamp(0.0, 1.0));
+    }
+
+    // 任务进度
+    engine.taskManager.recordAnswer(mastered);
+
+    await FileStorageService.save({'engine_data': engine.toJson()});
+
+    _updateLast(msg);
+    setState(() {
+      _answering = false;
+      _loading = false;
+    });
+    _scrollToBottom();
+
+    // 检查升级
+    final prevLevel = engine.level;
+    if (engine.checkLevelUp() && context.mounted) {
+      final unlocks = <String>['Boss 技能已掌握！'];
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => LevelUpOverlay(
+          oldLevel: prevLevel,
+          newLevel: engine.level,
+          xpGained: score,
+          unlocks: unlocks,
+          onDismiss: () => Navigator.pop(context),
+        ),
+      );
+    }
   }
 
   void _submitAnswer() async {
@@ -302,6 +501,14 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     _inputController.clear();
     _addMsg('👤', answer, isAI: false);
     _addMsg('📊', '系统评分中...', isAI: true);
+    _loading = true;
+
+    // Boss 模式用多解法评分
+    if (widget.isBossMode) {
+      await _scoreBossAnswer(answer, engine);
+      return;
+    }
+
     final result = await ApiService.scoreAnswer(_lastQ, answer);
     if (!result.success) {
       _updateLast('❌ 评分失败\n${result.error}');
@@ -377,10 +584,70 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
         msg += '\n   未达标，继续练习「$_topic」直到掌握';
       }
     }
+
+    // ── 技能树：更新对应节点的掌握度 ──
+    final tree = engine.getSkillTree(widget.subject);
+    SkillNode? matchedNode;
+    for (final node in tree.nodes.values) {
+      // 用名称模糊匹配（如果当前 topic 和节点名相关）
+      if (_topic.contains(node.name) || node.name.contains(_topic)) {
+        matchedNode = node;
+        break;
+      }
+    }
+    List<SkillNode> newlyUnlocked = [];
+    if (matchedNode != null) {
+      newlyUnlocked = engine.completeSkillNode(
+        widget.subject,
+        matchedNode.id,
+        score / 100.0,
+      );
+    }
+
+    // ── 记录任务进度 ──
+    engine.taskManager.recordAnswer(score >= 60);
+
     await FileStorageService.save({'engine_data': engine.toJson()});
 
     _updateLast(msg);
     _answering = false;
+
+    // ── 显示解锁提示 ──
+    if (newlyUnlocked.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        UnlockToast.show(
+          context,
+          newlyUnlocked.map((n) => n.name).toList(),
+        );
+      });
+    }
+
+    // ── 检查升级 ──
+    final prevLevel = engine.level;
+    final leveledUp = engine.checkLevelUp();
+    if (engine.level > prevLevel) {
+      final xpGained = score; // 简化：得分就是获得的经验
+      final unlocks = <String>[];
+      if (newlyUnlocked.isNotEmpty) {
+        unlocks.addAll(newlyUnlocked.map((n) => '技能：${n.name}'));
+      }
+      if (unlocks.isEmpty) {
+        unlocks.add('继续加油，解锁更多内容！');
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => LevelUpOverlay(
+            oldLevel: prevLevel,
+            newLevel: engine.level,
+            xpGained: xpGained,
+            unlocks: unlocks,
+            onDismiss: () => Navigator.pop(context),
+          ),
+        );
+      });
+    }
 
     Future.delayed(const Duration(milliseconds: 800), () {
       _addMsg('🎯', '要继续深入讲解「$_topic」的下一个知识点吗？\n回复"继续"或说新的知识点', isAI: true);

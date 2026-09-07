@@ -4,6 +4,7 @@ import '../app_theme.dart';
 import '../skill_tree.dart';
 import '../task_system.dart';
 import '../providers/app_providers.dart';
+import 'learn_screen.dart';
 
 /// 技能树页面 - 天赋树风格可视化
 ///
@@ -560,10 +561,14 @@ class _SkillNodeDetailSheet extends StatelessWidget {
                           : () {
                               Navigator.pop(context);
                               // 跳转到学习页
-                              Navigator.pushReplacement(
+                              Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const Scaffold(), // 占位，实际接入学习页
+                                  builder: (_) => LearnScreen(
+                                    subject: subject,
+                                    skillNodeId: node.id,
+                                    isBossMode: node.type == SkillType.boss,
+                                  ),
                                 ),
                               );
                             },

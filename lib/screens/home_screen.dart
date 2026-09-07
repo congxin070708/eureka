@@ -16,6 +16,8 @@ import 'stats_screen.dart';
 import 'skill_tree_screen.dart';
 import 'gacha_screen.dart';
 import 'file_learning_screen.dart';
+import 'subject_launch_screen.dart';
+import '../skill_tree.dart';
 import '../version.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -721,14 +723,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 accuracy: sub.accuracy,
                 onTap: () {
                   e.setCurrentSubject(name);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LearnScreen(subject: name),
-                    ),
-                  ).then((_) {
-                    _saveEngineSync();
-                  });
+                  // 如果有技能树预设，先走任务发布页
+                  final preset = SkillTreePresets.matchPreset(name);
+                  if (preset != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubjectLaunchScreen(subject: name),
+                      ),
+                    ).then((_) {
+                      _saveEngineSync();
+                    });
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => LearnScreen(subject: name),
+                      ),
+                    ).then((_) {
+                      _saveEngineSync();
+                    });
+                  }
                 },
                 onSkillTree: () {
                   Navigator.push(

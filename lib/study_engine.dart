@@ -87,7 +87,7 @@ class StudyEngine {
       // 签到奖励
       xp += 5;
       totalXp += 5;
-      _checkLevelUp();
+      checkLevelUp();
       // 任务系统记录
       taskManager.recordCheckIn();
     }
@@ -312,12 +312,15 @@ class StudyEngine {
 
   // ── 等级/经验 ──
 
-  void _checkLevelUp() {
+  /// 检查升级，返回是否升级了
+  bool checkLevelUp() {
+    final prev = level;
     while (xp >= xpNext) {
       xp -= xpNext;
       level++;
       xpNext = (xpNext * 1.4).toInt();
     }
+    return level > prev;
   }
 
   Map<String, dynamic> toJson() => {
