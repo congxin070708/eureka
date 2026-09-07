@@ -1,2 +1,2 @@
 /// 应用版本号
-const String appVersion = 'v2.0 · Eureka';
+const String appVersion = 'v1.2 · Eureka';
