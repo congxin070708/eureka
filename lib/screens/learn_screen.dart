@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../api_service.dart';
 import '../app_theme.dart';
@@ -228,6 +229,28 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
         _addMsg('🎯', data['ask'], isAI: true);
       });
     }
+
+    // 首次使用引导
+    _checkFirstTimeGuide();
+  }
+
+  /// 检查并显示首次使用引导
+  void _checkFirstTimeGuide() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenGuide = prefs.getBool('learn_guide_seen') ?? false;
+    if (!hasSeenGuide) {
+      await prefs.setBool('learn_guide_seen', true);
+      // 延迟一会儿再显示，避免和欢迎消息挤在一起
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        _addMsg('💡', '**新手指南**\n\n'
+            '欢迎使用尤里卡！这里有一些使用小技巧：\n\n'
+            '📝 **答题时**：用自己的话回答，答错也没关系，AI 会帮你纠正\n'
+            '💬 **对话时**：可以说「下一题」「举个例子」「再解释一下」\n'
+            '⚡ **快捷短语**：点击输入框上方的芯片，快速输入常用内容\n'
+            '❓ **帮助**：点击输入框右侧的 ? 查看完整使用技巧\n\n'
+            '准备好了就输入话题名称开始学习吧！', isAI: true);
+      });
+    }
   }
 
   void _askQuestion(String topic) async {
@@ -380,6 +403,21 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     } else {
       _send();
     }
+  }
+
+  /// 快捷短语处理
+  void _handleQuickPhrase(String phrase) {
+    if (phrase == '跳过这题' && _lastQ.isNotEmpty) {
+      _skipQuestion();
+      return;
+    }
+    if (phrase == '下一题') {
+      _inputController.text = '下一题';
+      _handleSubmit();
+      return;
+    }
+    // 其他短语直接填入输入框
+    _inputController.text = phrase;
   }
 
   void _send() async {
@@ -674,6 +712,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
               onSend: _handleSubmit,
               onMicTap: _startListening,
               onSubmitted: (_) => _handleSubmit(),
+              onQuickPhrase: _handleQuickPhrase,
             )
           else
             Padding(

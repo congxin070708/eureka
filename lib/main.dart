@@ -10,6 +10,7 @@ import 'secure_storage_service.dart';
 import 'notification_service.dart';
 import 'providers/app_providers.dart';
 import 'screens/home_screen.dart';
+import 'widgets/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,9 @@ void main() async {
 
   // 主题模式:默认白色(亮色),可切换
   AppTheme.isDark = prefs.getBool('dark_theme') ?? false;
+
+  // 是否首次启动
+  final bool isFirstLaunch = prefs.getBool('onboarding_done') != true;
 
   // 初始化本地通知(用于复习提醒)
   await NotificationService.init();
@@ -75,7 +79,7 @@ void main() async {
         return notifier;
       }),
     ],
-    child: const EurekaApp(),
+    child: EurekaApp(isFirstLaunch: isFirstLaunch),
   ));
 }
 
@@ -87,7 +91,8 @@ Future<void> _saveEngineData(StudyEngine engine) async {
 }
 
 class EurekaApp extends ConsumerStatefulWidget {
-  const EurekaApp({super.key});
+  final bool isFirstLaunch;
+  const EurekaApp({super.key, required this.isFirstLaunch});
 
   @override
   ConsumerState<EurekaApp> createState() => _EurekaAppState();
@@ -95,9 +100,12 @@ class EurekaApp extends ConsumerStatefulWidget {
 
 class _EurekaAppState extends ConsumerState<EurekaApp>
     with WidgetsBindingObserver {
+  late bool _showOnboarding;
+
   @override
   void initState() {
     super.initState();
+    _showOnboarding = widget.isFirstLaunch;
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -113,6 +121,12 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
     final engine = ref.read(studyEngineProvider);
     engine.save();
     _saveEngineData(engine);
+  }
+
+  Future<void> _completeOnboarding() async {
+    setState(() => _showOnboarding = false);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_done', true);
   }
 
   @override
@@ -134,7 +148,9 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
         fontFamily: 'AppFont',
         scaffoldBackgroundColor: AppTheme.bg,
       ),
-      home: const HomeScreen(),
+      home: _showOnboarding
+          ? OnboardingScreen(onCompleted: _completeOnboarding)
+          : const HomeScreen(),
     );
   }
 }

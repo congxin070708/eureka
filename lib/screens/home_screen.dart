@@ -10,6 +10,7 @@ import '../review_scheduler.dart';
 import '../data_export_service.dart';
 import '../notification_service.dart';
 import '../providers/app_providers.dart';
+import '../widgets/api_key_guide_sheet.dart';
 import 'learn_screen.dart';
 import 'stats_screen.dart';
 import '../version.dart';
@@ -642,27 +643,82 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showAddSubjectDialog(StudyEngine e) {
     final subjectCtrl = TextEditingController();
+    final examples = ['高等数学', 'Python编程', '英语词汇', '数据结构', '机器学习', '经济学原理'];
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: Text('添加新学科', style: TextStyle(color: AppTheme.textPrimary)),
-        content: TextField(
-          controller: subjectCtrl,
-          autofocus: true,
-          style: TextStyle(color: AppTheme.textPrimary),
-          decoration: InputDecoration(
-            hintText: '如：高等数学、Python编程',
-            hintStyle: TextStyle(color: AppTheme.textSecondary),
-            border: const OutlineInputBorder(),
-          ),
-          onSubmitted: (v) {
-            if (v.trim().isNotEmpty) {
-              e.getSubject(v.trim());
-              Navigator.pop(ctx);
-              _saveEngineSync();
-            }
-          },
+        title: Text('想学点什么？', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '输入你想学习的学科或具体知识点',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: subjectCtrl,
+              autofocus: true,
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: '例如：线性代数、机器学习、英语语法...',
+                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.accent, width: 2),
+                ),
+              ),
+              onSubmitted: (v) {
+                if (v.trim().isNotEmpty) {
+                  e.getSubject(v.trim());
+                  Navigator.pop(ctx);
+                  _saveEngineSync();
+                }
+              },
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '💡 试试这些：',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: examples.map((ex) {
+                return GestureDetector(
+                  onTap: () {
+                    subjectCtrl.text = ex;
+                    subjectCtrl.selection = TextSelection.fromPosition(
+                      TextPosition(offset: ex.length),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
+                    ),
+                    child: Text(
+                      ex,
+                      style: TextStyle(fontSize: 11, color: AppTheme.accent),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -678,7 +734,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _saveEngineSync();
               }
             },
-            child: Text('添加', style: TextStyle(color: AppTheme.accentLight)),
+            child: Text('开始学习', style: TextStyle(color: AppTheme.accentLight, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -703,23 +759,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: controller,
-                style: TextStyle(color: AppTheme.textPrimary),
-                onChanged: (_) => setDialogState(() {}),
-                decoration: InputDecoration(
-                  labelText: 'API Key',
-                  hintText: 'sk-...',
-                  labelStyle: TextStyle(color: AppTheme.textSecondary),
-                  border: const OutlineInputBorder(),
+              // ── API Key 入口 ──
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ApiKeyGuideSheet(
+                      controller: controller,
+                      onSaved: () async {
+                        ApiService.apiKey = controller.text.trim();
+                        await SecureStorageService.saveApiKey(ApiService.apiKey);
+                        if (context.mounted) Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('✅ API Key 已保存'),
+                            backgroundColor: AppTheme.taskDone,
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      onClosed: () => Navigator.pop(context),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.key, size: 22, color: Color(0xFFf97316)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'API Key 设置',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              ApiService.apiKey.isEmpty
+                                  ? '还没设置，点击配置'
+                                  : '已配置 · ${_backendHint(ApiService.apiKey)}',
+                              style: TextStyle(
+                                  fontSize: 12, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, color: AppTheme.textSecondary, size: 20),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _backendHint(controller.text),
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-              ),
               const SizedBox(height: 16),
+              // ── 数据管理 ──
               Row(
                 children: [
                   Expanded(
@@ -781,15 +886,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
-            ),
-            TextButton(
-              onPressed: () async {
-                ApiService.apiKey = controller.text.trim();
-                await SecureStorageService.saveApiKey(ApiService.apiKey);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: Text('保存', style: TextStyle(color: AppTheme.accent)),
+              child: Text('完成', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
