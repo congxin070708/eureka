@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 
 /// API调用结果封装
@@ -7,8 +8,13 @@ class ApiResult {
   final String content;   // 成功时: AI返回的文本
   final String error;     // 失败时: 错误描述
   final int? statusCode;  // HTTP状态码
-  ApiResult.success(this.content) : success = true, error = '', statusCode = null;
-  ApiResult.failure(this.error, {this.statusCode}) : success = false, content = '';
+  final bool fromCache;   // 是否来自缓存(降级时)
+  ApiResult.success(this.content)
+      : success = true, error = '', statusCode = null, fromCache = false;
+  ApiResult.failure(this.error, {this.statusCode})
+      : success = false, content = '', fromCache = false;
+  ApiResult.cache(this.content)
+      : success = true, error = '', statusCode = null, fromCache = true;
 }
 
 class ApiService {
@@ -44,12 +50,17 @@ class ApiService {
     }
   }
 
+  // ── 简易缓存: 缓存最近成功的响应,网络失败时降级返回 ──
+  static final Map<String, String> _cache = {};
+  static const int _maxRetries = 2; // 重试次数(不含首次)
+  static const Duration _retryDelay = Duration(seconds: 1);
+
   static Future<ApiResult> _call(
     String system,
     String userMsg, {
     List<Map<String, String>>? history,
+    String cacheKey = '', // 传入则启用缓存降级
   }) async {
-    // 检查 key
     String key = apiKey.trim();
     if (key.isEmpty) return ApiResult.failure('请先在设置中填入 API Key');
     // 组装 messages:system + 最近对话上下文 + 当前提问
@@ -67,38 +78,79 @@ class ApiService {
       // 显式禁用思考模式,保证普通聊天可用(仅 DeepSeek 支持该参数)
       if (_backend == 'deepseek') 'thinking': {'type': 'disabled'},
     };
-    try {
-      final resp = await http.post(
-        Uri.parse(baseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $key',
-        },
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 60));
 
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        final msg = data['choices'][0]['message'];
-        var content = msg['content'] ?? '';
-        // 推理模型内容可能放在 reasoning_content
-        if (content.toString().trim().isEmpty) {
-          content = msg['reasoning_content'] ?? '';
-        }
-        return ApiResult.success(content.toString());
-      }
-      // 尝试解析API返回的错误信息
-      String detail = '';
+    ApiResult? lastError;
+    for (int attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
-        final err = jsonDecode(resp.body);
-        detail = err['error']?['message'] ?? err.toString();
-      } catch (_) {
-        detail = resp.body.length > 200 ? resp.body.substring(0, 200) : resp.body;
+        final resp = await http.post(
+          Uri.parse(baseUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $key',
+          },
+          body: jsonEncode(body),
+        ).timeout(const Duration(seconds: 60));
+
+        if (resp.statusCode == 200) {
+          final data = jsonDecode(resp.body);
+          final msg = data['choices'][0]['message'];
+          var content = msg['content'] ?? '';
+          // 推理模型内容可能放在 reasoning_content
+          if (content.toString().trim().isEmpty) {
+            content = msg['reasoning_content'] ?? '';
+          }
+          final result = ApiResult.success(content.toString());
+          // 缓存成功结果
+          if (cacheKey.isNotEmpty) {
+            _cache[cacheKey] = content.toString();
+            // 缓存上限 20 条
+            if (_cache.length > 20) {
+              _cache.remove(_cache.keys.first);
+            }
+          }
+          return result;
+        }
+        // 4xx 错误不重试(客户端错误,重试也没用)
+        if (resp.statusCode >= 400 && resp.statusCode < 500) {
+          String detail = '';
+          try {
+            final err = jsonDecode(resp.body);
+            detail = err['error']?['message'] ?? err.toString();
+          } catch (_) {
+            detail = resp.body.length > 200
+                ? resp.body.substring(0, 200)
+                : resp.body;
+          }
+          return ApiResult.failure('API错误(${resp.statusCode}): $detail',
+              statusCode: resp.statusCode);
+        }
+        // 5xx 错误可以重试
+        String detail = '';
+        try {
+          final err = jsonDecode(resp.body);
+          detail = err['error']?['message'] ?? err.toString();
+        } catch (_) {
+          detail = resp.body.length > 200
+              ? resp.body.substring(0, 200)
+              : resp.body;
+        }
+        lastError = ApiResult.failure('API错误(${resp.statusCode}): $detail',
+            statusCode: resp.statusCode);
+      } on TimeoutException {
+        lastError = ApiResult.failure('连接超时,请检查网络');
+      } catch (e) {
+        lastError = ApiResult.failure('连接失败: $e');
       }
-      return ApiResult.failure('API错误(${resp.statusCode}): $detail', statusCode: resp.statusCode);
-    } catch (e) {
-      return ApiResult.failure('连接失败: $e');
+      // 重试前等待(指数退避)
+      if (attempt < _maxRetries) {
+        await Future.delayed(_retryDelay * (attempt + 1));
+      }
     }
+    // 所有重试都失败,尝试返回缓存
+    if (cacheKey.isNotEmpty && _cache.containsKey(cacheKey)) {
+      return ApiResult.cache(_cache[cacheKey]!);
+    }
+    return lastError ?? ApiResult.failure('未知错误');
   }
 
   /// 从模型输出中提取纯 JSON(容忍 markdown 代码围栏等杂质)
@@ -147,7 +199,8 @@ class ApiService {
       '注意：每次推荐的书要不同，这次重点推荐$seed的教材 '
       '价值系数根据书籍难度和重要性评分：90-100神级(红色)、70-89优质(橙色)、50-69中等(黄色)、30-49基础(绿色)、0-29拓展(灰色) '
       '3)列出学习话题。'
-      '格式{"welcome":"...","stages":[{"level":"入门/进阶/精通/实战","books":[{"name":"...","author":"...","value":85,"reason":"...","tag":"$seed"}]}],"topics":["..."]} 纯JSON。不要问用户想学哪个，直接出第一个话题的讲解。');
+      '格式{"welcome":"...","stages":[{"level":"入门/进阶/精通/实战","books":[{"name":"...","author":"...","value":85,"reason":"...","tag":"$seed"}]}],"topics":["..."]} 纯JSON。不要问用户想学哪个，直接出第一个话题的讲解。',
+      cacheKey: 'start_${subject}_$mode');
     if (!r.success) return r;
     return _wrapJson(r.content);
   }

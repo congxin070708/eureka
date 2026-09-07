@@ -1,7 +1,7 @@
-name: ai_tutor
-description: AI导师 - 真AI驱动学习APP
+name: eureka
+description: Eureka (尤里卡) - AI学习强化训练应用
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -13,6 +13,12 @@ dependencies:
   shared_preferences: ^2.2.0
   speech_to_text: ^6.6.2
   path_provider: ^2.1.0
+  flutter_secure_storage: ^9.2.2
+  flutter_local_notifications: ^17.2.3
+  share_plus: ^9.0.0
+  file_picker: ^8.1.2
+  timezone: ^0.9.4
+  flutter_riverpod: ^2.5.1
 
 dev_dependencies:
   flutter_test:

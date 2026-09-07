@@ -7,12 +7,19 @@ import 'package:path_provider/path_provider.dart';
 /// 写入 App 文档目录下的 JSON 文件，每次写后立即 flush
 /// 启动时从文件读取，完全不依赖 SharedPreferences
 class FileStorageService {
-  static const _fileName = 'ai_tutor_data.json';
+  static const _fileName = 'eureka_data.json';
+  static const _oldFileName = 'ai_tutor_data.json'; // 兼容旧版
 
   /// 获取存储文件路径
   static Future<String> _getFilePath() async {
     final dir = await getApplicationDocumentsDirectory();
     return '${dir.path}/$_fileName';
+  }
+
+  /// 获取旧版文件路径(兼容迁移)
+  static Future<String> _getOldFilePath() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/$_oldFileName';
   }
 
   /// 从文件加载存储数据
@@ -22,6 +29,20 @@ class FileStorageService {
       final path = await _getFilePath();
       final file = File(path);
       if (!await file.exists()) {
+        // 兼容旧版: 尝试从旧文件名加载
+        final oldPath = await _getOldFilePath();
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          debugPrint('[FileStorage] 从旧文件名迁移: $oldPath');
+          final content = await oldFile.readAsString();
+          final data = jsonDecode(content);
+          if (data is Map) {
+            // 迁移到新文件后删除旧文件
+            await save(data.cast<String, dynamic>());
+            await oldFile.delete();
+            return data.cast<String, dynamic>();
+          }
+        }
         debugPrint('[FileStorage] 存储文件不存在，返回空数据');
         return {};
       }

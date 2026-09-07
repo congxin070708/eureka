@@ -190,6 +190,8 @@ class StudyEngine {
     'totalQ': totalQ, 'totalCorrect': totalCorrect,
     'streak': streak, 'bestStreak': bestStreak,
     'totalStudyMinutes': totalStudyMinutes,
+    'studyMode': studyMode,
+    'currentSubject': currentSubject,
     'subjects': subjects.map((k, v) => MapEntry(k, v.toJson())),
     'history': history.map((h) => h.toJson()).toList(),
     'bookmarks': bookmarks.map((b) => b.toJson()).toList(),
@@ -212,6 +214,8 @@ class StudyEngine {
     e.streak = json['streak'] ?? 0;
     e.bestStreak = json['bestStreak'] ?? 0;
     e.totalStudyMinutes = json['totalStudyMinutes'] ?? 0;
+    e.studyMode = json['studyMode'] ?? '深度';
+    e.currentSubject = json['currentSubject'] ?? '';
     if (json['subjects'] != null) {
       (json['subjects'] as Map).forEach((k, v) {
         e.subjects[k] = SubjectData.fromJson(v);
@@ -225,6 +229,16 @@ class StudyEngine {
     }
     if (json['dailyRecords'] != null) {
       e.dailyRecords = (json['dailyRecords'] as List).map((r) => DailyRecord.fromJson(r)).toList();
+    }
+    // 修复: 之前漏读了 chatHistory, 导致重启后聊天记录全丢
+    if (json['chatHistory'] != null) {
+      (json['chatHistory'] as Map).forEach((k, v) {
+        e.chatHistory[k] = (v as List).map((m) => {
+          'emoji': m['emoji'] ?? '',
+          'text': m['text'] ?? '',
+          'isAI': m['isAI'] ?? true,
+        }).toList();
+      });
     }
     return e;
   }
