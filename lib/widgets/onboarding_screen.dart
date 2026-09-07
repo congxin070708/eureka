@@ -396,7 +396,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 backgroundColor: Colors.transparent,
                 builder: (_) => ApiKeyGuideSheet(
                   controller: _apiKeyController,
-                  onSaved: () {
+                  onSaved: (baseUrl) {
+                    ApiService.customBaseUrl = baseUrl;
+                    SecureStorageService.saveBaseUrl(baseUrl);
                     Navigator.pop(context);
                     _finishSetup();
                   },

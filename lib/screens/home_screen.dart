@@ -15,6 +15,7 @@ import 'learn_screen.dart';
 import 'stats_screen.dart';
 import 'skill_tree_screen.dart';
 import 'gacha_screen.dart';
+import 'file_learning_screen.dart';
 import '../version.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -299,6 +300,77 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 16),
             _buildBookShelf(e, subjects),
             const SizedBox(height: 16),
+
+            // ── 快速入口：文件学习 ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const FileLearningScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF8b5cf6),
+                        const Color(0xFF6366f1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366f1).withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.description, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              '文件学习',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '上传代码/文档，逐段理解',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
 
             // ── 添加新学科按钮 ──
             Padding(
@@ -830,15 +902,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     backgroundColor: Colors.transparent,
                     builder: (_) => ApiKeyGuideSheet(
                       controller: controller,
-                      onSaved: () async {
+                      onSaved: (baseUrl) async {
                         ApiService.apiKey = controller.text.trim();
+                        ApiService.customBaseUrl = baseUrl;
                         await SecureStorageService.saveApiKey(ApiService.apiKey);
+                        await SecureStorageService.saveBaseUrl(baseUrl);
+                        ApiService.clearDetectionCache();
                         if (context.mounted) Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('✅ API Key 已保存'),
+                          const SnackBar(
+                            content: Text('✅ API Key 已保存'),
                             backgroundColor: AppTheme.taskDone,
-                            duration: const Duration(seconds: 1),
+                            duration: Duration(seconds: 1),
                           ),
                         );
                       },

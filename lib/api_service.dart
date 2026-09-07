@@ -19,36 +19,66 @@ class ApiResult {
 }
 
 class ApiService {
-  // ── 后端(按 Key 前缀自动识别) ──
-  static const String _deepseekUrl = 'https://api.deepseek.com/v1/chat/completions';
-  static const String _bailianUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-  static const String _openaiUrl = 'https://api.openai.com/v1/chat/completions';
+  // ── 内置后端地址 ──
+  static const String _deepseekUrl = 'https://api.deepseek.com/v1';
+  static const String _bailianUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+  static const String _openaiUrl = 'https://api.openai.com/v1';
+  static const String _siliconflowUrl = 'https://api.siliconflow.cn/v1';
 
   static String apiKey = '';
+  static String customBaseUrl = ''; // 用户自定义 Base URL
+
+  /// 检测结果
+  static ApiDetectionResult? _cachedDetection;
 
   /// 后端类型:按 Key 前缀识别
-  /// sk-sp- → 百炼(TokenPlan)；sk-proj- → OpenAI；其他 sk- → DeepSeek
-  static String get _backend {
+  /// sk-sp- → 百炼；sk-proj- → OpenAI；sk-sid- → SiliconFlow；其他 sk- → DeepSeek
+  static String get _backendByPrefix {
     final k = apiKey.trim();
+    if (customBaseUrl.isNotEmpty) return 'custom';
     if (k.startsWith('sk-sp-')) return 'bailian';
     if (k.startsWith('sk-proj-')) return 'openai';
+    if (k.startsWith('sk-sid-')) return 'siliconflow';
     return 'deepseek';
   }
 
-  static String get baseUrl {
-    switch (_backend) {
+  /// Base URL（不带 chat/completions 后缀，用于探测模型列表等）
+  static String get baseUrlRoot {
+    switch (_backendByPrefix) {
       case 'bailian': return _bailianUrl;
       case 'openai': return _openaiUrl;
+      case 'siliconflow': return _siliconflowUrl;
+      case 'custom': return _normalizeBaseUrl(customBaseUrl);
       default: return _deepseekUrl;
     }
   }
 
-  static String get _model {
-    switch (_backend) {
+  /// 完整的 chat completions 地址
+  static String get baseUrl => '$baseUrlRoot/chat/completions';
+
+  /// 默认模型（按后端）
+  static String get defaultModel {
+    switch (_backendByPrefix) {
       case 'bailian': return 'qwen-plus';
       case 'openai': return 'gpt-4o-mini';
+      case 'siliconflow': return 'deepseek-ai/DeepSeek-V3';
       default: return 'deepseek-v4-flash';
     }
+  }
+
+  /// 当前使用的模型（如果探测到了就用探测结果，否则用默认）
+  static String get _model {
+    return _cachedDetection?.firstModel ?? defaultModel;
+  }
+
+  /// 规范化 Base URL（去掉末尾的 /，确保不以 /chat/completions 结尾）
+  static String _normalizeBaseUrl(String url) {
+    var u = url.trim();
+    if (u.endsWith('/')) u = u.substring(0, u.length - 1);
+    if (u.endsWith('/chat/completions')) {
+      u = u.substring(0, u.length - '/chat/completions'.length);
+    }
+    return u;
   }
 
   // ── 简易缓存: 缓存最近成功的响应,网络失败时降级返回 ──
@@ -77,7 +107,7 @@ class ApiService {
       'max_tokens': 4000,
       // DeepSeek v4-flash 正式版(0731)默认走思考模式会返回空 content,
       // 显式禁用思考模式,保证普通聊天可用(仅 DeepSeek 支持该参数)
-      if (_backend == 'deepseek') 'thinking': {'type': 'disabled'},
+      if (_backendByPrefix == 'deepseek') 'thinking': {'type': 'disabled'},
     };
 
     ApiResult? lastError;
@@ -313,4 +343,177 @@ $modePrompt
     if (!r.success) return null;
     try { return jsonDecode(r.content); } catch (_) { return null; }
   }
+
+  // ── API 自动检测 ──
+
+  /// 检测 API Key 和 Base URL 是否有效
+  /// 返回检测结果：是否连通、后端名称、可用模型列表
+  static Future<ApiDetectionResult> detectApi({
+    String? testKey,
+    String? testBaseUrl,
+  }) async {
+    final key = (testKey ?? apiKey).trim();
+    final base = testBaseUrl != null && testBaseUrl.isNotEmpty
+        ? _normalizeBaseUrl(testBaseUrl)
+        : baseUrlRoot;
+
+    if (key.isEmpty) {
+      return ApiDetectionResult(
+        success: false,
+        error: '请输入 API Key',
+        backendName: '未知',
+        models: [],
+      );
+    }
+
+    // 1. 先尝试获取模型列表（轻量探测）
+    try {
+      final modelsUrl = '$base/models';
+      final resp = await http.get(
+        Uri.parse(modelsUrl),
+        headers: {
+          'Authorization': 'Bearer $key',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final List<dynamic> modelList = data['data'] ?? [];
+        final models = modelList
+            .map((m) => m['id']?.toString() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+
+        final backendName = _guessBackendName(models, base);
+        final result = ApiDetectionResult(
+          success: true,
+          backendName: backendName,
+          models: models,
+          firstModel: models.isNotEmpty ? models[0] : null,
+        );
+        _cachedDetection = result;
+        return result;
+      }
+
+      // 401/403 = Key 错了
+      if (resp.statusCode == 401 || resp.statusCode == 403) {
+        return ApiDetectionResult(
+          success: false,
+          error: 'API Key 无效，请检查是否正确',
+          backendName: '未知',
+          models: [],
+        );
+      }
+    } catch (e) {
+      // 模型列表接口不支持，继续往下试
+    }
+
+    // 2. 模型列表接口不通，就发一个最简单的 chat 请求测试
+    try {
+      final testBody = jsonEncode({
+        'model': _guessDefaultModel(base),
+        'messages': [
+          {'role': 'user', 'content': 'hi'},
+        ],
+        'max_tokens': 5,
+      });
+
+      final resp = await http.post(
+        Uri.parse('$base/chat/completions'),
+        headers: {
+          'Authorization': 'Bearer $key',
+          'Content-Type': 'application/json',
+        },
+        body: testBody,
+      ).timeout(const Duration(seconds: 15));
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final modelUsed = data['model']?.toString() ?? _guessDefaultModel(base);
+        final result = ApiDetectionResult(
+          success: true,
+          backendName: _guessBackendName([], base),
+          models: [modelUsed],
+          firstModel: modelUsed,
+        );
+        _cachedDetection = result;
+        return result;
+      }
+
+      String errorMsg = '连接失败 (${resp.statusCode})';
+      try {
+        final err = jsonDecode(resp.body);
+        errorMsg = err['error']?['message'] ?? errorMsg;
+      } catch (_) {}
+
+      return ApiDetectionResult(
+        success: false,
+        error: errorMsg,
+        backendName: '未知',
+        models: [],
+      );
+    } on TimeoutException {
+      return ApiDetectionResult(
+        success: false,
+        error: '连接超时，请检查网络或 Base URL 是否正确',
+        backendName: '未知',
+        models: [],
+      );
+    } catch (e) {
+      return ApiDetectionResult(
+        success: false,
+        error: '连接失败：$e',
+        backendName: '未知',
+        models: [],
+      );
+    }
+  }
+
+  static String _guessDefaultModel(String base) {
+    if (base.contains('deepseek')) return 'deepseek-v4-flash';
+    if (base.contains('dashscope') || base.contains('aliyun')) return 'qwen-plus';
+    if (base.contains('openai')) return 'gpt-4o-mini';
+    if (base.contains('siliconflow')) return 'deepseek-ai/DeepSeek-V3';
+    return 'gpt-4o-mini';
+  }
+
+  static String _guessBackendName(List<String> models, String base) {
+    final b = base.toLowerCase();
+    if (b.contains('deepseek')) return 'DeepSeek';
+    if (b.contains('dashscope') || b.contains('aliyun')) return '阿里云百炼';
+    if (b.contains('openai')) return 'OpenAI';
+    if (b.contains('siliconflow')) return 'SiliconFlow';
+    if (b.contains('moonshot')) return '月之暗面 Kimi';
+    if (b.contains('zhipu') || b.contains('chatglm')) return '智谱 AI';
+    if (b.contains('xinghuo') || b.contains('xfyun') || b.contains('iflytek')) return '讯飞星火';
+    if (models.any((m) => m.toLowerCase().contains('qwen'))) return '兼容 OpenAI 协议（通义千问系列）';
+    if (models.any((m) => m.toLowerCase().contains('deepseek'))) return '兼容 OpenAI 协议（DeepSeek 系列）';
+    if (models.any((m) => m.toLowerCase().contains('gpt'))) return '兼容 OpenAI 协议（GPT 系列）';
+    return '兼容 OpenAI 协议';
+  }
+
+  /// 清除缓存的检测结果
+  static void clearDetectionCache() {
+    _cachedDetection = null;
+  }
+}
+
+/// API 检测结果
+class ApiDetectionResult {
+  final bool success;
+  final String error;
+  final String backendName;
+  final List<String> models;
+  final String? firstModel;
+
+  ApiDetectionResult({
+    required this.success,
+    required this.backendName,
+    required this.models,
+    this.error = '',
+    this.firstModel,
+  });
+
+  int get modelCount => models.length;
 }

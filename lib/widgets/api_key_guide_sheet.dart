@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
+import '../api_service.dart';
 
 /// API Key 配置引导页
 ///
@@ -8,9 +9,10 @@ import '../app_theme.dart';
 /// - 支持哪些后端及对比
 /// - 各平台获取教程
 /// - 安全说明
+/// - 自定义 Base URL + 连通性自动检测
 class ApiKeyGuideSheet extends StatefulWidget {
   final TextEditingController controller;
-  final VoidCallback onSaved;
+  final ValueChanged<String> onSaved; // 参数: baseUrl
   final VoidCallback onClosed;
 
   const ApiKeyGuideSheet({
@@ -25,16 +27,24 @@ class ApiKeyGuideSheet extends StatefulWidget {
 }
 
 class _ApiKeyGuideSheetState extends State<ApiKeyGuideSheet> {
+  final _baseUrlController = TextEditingController();
+  bool _showAdvanced = false;
+  bool _detecting = false;
+  ApiDetectionResult? _detectResult;
+
   @override
   void initState() {
     super.initState();
     // 监听输入变化，实时更新后端识别提示
     widget.controller.addListener(_onTextChanged);
+    // 加载保存的自定义 URL
+    _baseUrlController.text = ApiService.customBaseUrl;
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
+    _baseUrlController.dispose();
     super.dispose();
   }
 
@@ -141,6 +151,91 @@ class _ApiKeyGuideSheetState extends State<ApiKeyGuideSheet> {
                   ),
                   const SizedBox(height: 8),
                   _buildBackendHint(widget.controller.text),
+                  const SizedBox(height: 12),
+
+                  // ── 高级设置开关 ──
+                  GestureDetector(
+                    onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings, size: 14, color: AppTheme.textSecondary),
+                        const SizedBox(width: 6),
+                        Text('高级设置（自定义 Base URL）',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        const Spacer(),
+                        Icon(
+                          _showAdvanced ? Icons.expand_less : Icons.expand_more,
+                          size: 18,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (_showAdvanced) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _baseUrlController,
+                      style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: '自定义 Base URL',
+                        hintText: 'https://api.example.com/v1',
+                        labelStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTheme.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTheme.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTheme.accent, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '只要是兼容 OpenAI 协议的 API 服务都可以填，比如本地部署的 Ollama、各种中转服务等。',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.5),
+                    ),
+                    const SizedBox(height: 12),
+                    // 检测按钮
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: OutlinedButton.icon(
+                        onPressed: _detecting ? null : _runDetection,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppTheme.accent),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: _detecting
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: AppTheme.accent),
+                              )
+                            : Icon(Icons.search, size: 18, color: AppTheme.accent),
+                        label: Text(
+                          _detecting ? '检测中...' : '🔍 自动检测连通性',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.accent),
+                        ),
+                      ),
+                    ),
+                    if (_detectResult != null) ...[
+                      const SizedBox(height: 10),
+                      _buildDetectionResult(),
+                    ],
+                  ],
                   const SizedBox(height: 16),
 
                   // ── 获取教程 ──
@@ -222,7 +317,7 @@ class _ApiKeyGuideSheetState extends State<ApiKeyGuideSheet> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: widget.onSaved,
+                      onPressed: () => widget.onSaved(_baseUrlController.text.trim()),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accent,
                         shape: RoundedRectangleBorder(
@@ -477,5 +572,97 @@ class _ApiKeyGuideSheetState extends State<ApiKeyGuideSheet> {
         Text(text, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
       ],
     );
+  }
+
+  /// 执行 API 连通性检测
+  Future<void> _runDetection() async {
+    setState(() {
+      _detecting = true;
+      _detectResult = null;
+    });
+
+    final result = await ApiService.detectApi(
+      testKey: widget.controller.text.trim(),
+      testBaseUrl: _baseUrlController.text.trim(),
+    );
+
+    setState(() {
+      _detecting = false;
+      _detectResult = result;
+    });
+  }
+
+  /// 检测结果展示
+  Widget _buildDetectionResult() {
+    final r = _detectResult!;
+    if (r.success) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF22c55e).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF22c55e).withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle, size: 16, color: Color(0xFF22c55e)),
+                const SizedBox(width: 6),
+                const Text('连接成功！',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF22c55e))),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text('后端：${r.backendName}',
+                style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+            if (r.modelCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('可用模型：${r.modelCount} 个',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+            if (r.firstModel != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('默认使用：${r.firstModel}',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFef4444).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFef4444).withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.error_outline, size: 16, color: Color(0xFFef4444)),
+                const SizedBox(width: 6),
+                const Text('连接失败',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFef4444))),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(r.error,
+                style: TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.4)),
+          ],
+        ),
+      );
+    }
   }
 }

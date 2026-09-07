@@ -8,6 +8,7 @@ class SecureStorageService {
   );
 
   static const _keyApiKey = 'api_key';
+  static const _keyBaseUrl = 'base_url';
 
   /// 读取 API Key
   static Future<String> getApiKey() async {
@@ -22,6 +23,22 @@ class SecureStorageService {
   static Future<void> saveApiKey(String key) async {
     try {
       await _storage.write(key: _keyApiKey, value: key);
+    } catch (_) {}
+  }
+
+  /// 读取自定义 Base URL
+  static Future<String> getBaseUrl() async {
+    try {
+      return await _storage.read(key: _keyBaseUrl) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// 保存自定义 Base URL
+  static Future<void> saveBaseUrl(String url) async {
+    try {
+      await _storage.write(key: _keyBaseUrl, value: url);
     } catch (_) {}
   }
 

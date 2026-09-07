@@ -30,6 +30,10 @@ void main() async {
     ApiService.apiKey = secureKey;
   }
 
+  // 加载自定义 Base URL
+  final savedBaseUrl = await SecureStorageService.getBaseUrl();
+  ApiService.customBaseUrl = savedBaseUrl;
+
   // 主题模式:默认白色(亮色),可切换
   AppTheme.isDark = prefs.getBool('dark_theme') ?? false;
 
