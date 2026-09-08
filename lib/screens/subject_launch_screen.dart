@@ -66,7 +66,7 @@ class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
 
   Future<void> _generateMission() async {
     final prompt = '''
-你是"学霸系统"的 AI 助手。用户想要学习「${widget.subject}」。
+你是"Eureka 系统"的 AI 助手。用户想要学习「${widget.subject}」。
 请你以系统发布任务的口吻，生成一份学习计划。
 
 要求：
@@ -92,7 +92,7 @@ class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
 
     final result = await ApiService.chat(
       prompt,
-      systemPrompt: '你是"学霸系统"的内置 AI，语气冷静正式，有科技感。',
+      systemPrompt: '你是"Eureka 系统"的内置 AI，语气冷静正式，有科技感。',
       subject: widget.subject,
     );
 
@@ -165,7 +165,7 @@ class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
           ),
           const Spacer(),
           Text(
-            '⚡ 学霸系统',
+            '⚡ Eureka 系统',
             style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,

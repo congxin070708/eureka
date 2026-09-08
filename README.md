@@ -29,7 +29,7 @@ Eureka（尤里卡）是一款基于 **掌握度门控 + 遗忘曲线复习 + �
 | 🔔 **复习提醒推送** | 本地通知定时提醒，每天准时复习 |
 | 📌 **收藏与笔记** | 一键收藏重要知识点，打造自己的知识宝库 |
 
-### 游戏化系统（模仿"学霸的黑科技系统"）
+### 游戏化系统
 
 | 特性 | 说明 |
 |------|------|
@@ -248,7 +248,7 @@ flutter test test/input_validation_test.dart
 学习机制设计参考：
 - SM-2 间隔重复算法（SuperMemo）
 - 掌握度学习理论（Bloom's Mastery Learning）
-- 游戏化设计参考"学霸的黑科技系统"
+- AI 辅导与掌握度评估借鉴 [DeepTutor](https://github.com/HKUDS/DeepTutor)（港大 HKUDS 开源框架，Apache 2.0）
 
 ---
 
