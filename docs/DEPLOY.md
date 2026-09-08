@@ -2,6 +2,42 @@
 
 > Flutter 一套代码，iOS / Android / Web 三端发布
 
+## 快速发布（推荐）
+
+项目已配置 GitHub Actions 自动构建，打 tag 即可自动发布双端包。
+
+### 发布步骤
+
+```bash
+# 1. 修改 pubspec.yaml 版本号
+# version: 2.0.0+1
+
+# 2. 提交并打 tag
+git add -A
+git commit -m "release: v2.0.0"
+git tag v2.0.0
+git push origin v2.0.0
+```
+
+### 自动产出
+
+打 tag 后，GitHub Actions 会自动运行并产出：
+
+| 平台 | 产物 | 说明 |
+|------|------|------|
+| 🤖 Android | `eureka-2.0.0-arm64-v8a.apk` | 64 位 ARM，主流手机 |
+| 🤖 Android | `eureka-2.0.0-armeabi-v7a.apk` | 32 位 ARM，老旧设备 |
+| 🤖 Android | `eureka-2.0.0-x86_64.apk` | x86_64 模拟器 |
+| 🤖 Android | `eureka-2.0.0.aab` | App Bundle，Google Play 上架 |
+| 🍎 iOS | Runner.app（未签名） | 需要本地签名后分发 |
+| 🌐 Web | `eureka-web-2.0.0.zip` | 静态站部署包 |
+
+### 手动触发
+
+也可以在 GitHub Actions 页面手动触发 Build Release 工作流，指定版本号。
+
+---
+
 ## 前置条件
 
 ```bash
@@ -197,3 +233,56 @@ flutter build web --release --web-renderer canvaskit
 # 或使用 html 渲染器（体积更小）
 flutter build web --release --web-renderer html
 ```
+
+---
+
+## 六、CI/CD 工作流说明
+
+### 工作流文件
+
+- `.github/workflows/build-release.yml` — 发布构建（打 tag 触发）
+- `.github/workflows/pr-check.yml` — PR 检查（analyze + test + build）
+
+### 发布流程
+
+```
+打 tag v2.0.0
+    ↓
+触发 build-release workflow
+    ├─ Android 构建 (Ubuntu)
+    │   ├─ APK (3 种架构)
+    │   └─ App Bundle
+    ├─ iOS 构建 (macOS) ← 无签名，验证编译
+    └─ Web 构建 (Ubuntu)
+            ↓
+      创建 Draft Release
+     （自动上传所有产物）
+            ↓
+      手动确认后发布
+```
+
+### iOS 签名说明
+
+> ⚠️ GitHub Actions 的 iOS 构建**不包含代码签名**，只验证编译是否通过。
+> 原因：Apple 开发者证书属于敏感信息，且需要手动管理 Provisioning Profile。
+
+**签名并发布 iOS 的两种方式：**
+
+1. **本地 Xcode 签名（推荐）**
+   ```bash
+   flutter build ipa --release
+   # 自动打开 Xcode，选择签名后导出
+   ```
+
+2. **CI 自动签名（高级）**
+   - 将 p12 证书和 Provisioning Profile 存入 GitHub Secrets
+   - 使用 `apple-actions/import-codesign-certs`  action
+   - 需要维护证书和描述文件的更新
+
+### 关于 Android 签名
+
+CI 中的 Android 构建使用 debug 签名，只能用于测试。
+**正式发布**需要：
+1. 配置 `android/key.properties`（本地）
+2. 或在 CI 中通过 Secrets 注入签名信息
+3. 然后运行 `flutter build apk --release`
