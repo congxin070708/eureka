@@ -383,9 +383,6 @@ class _SkillTreePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // 计算每个节点的中心位置
-    final maxRow = nodes.map((n) => n.row).reduce((a, b) => a > b ? a : b);
-    final maxCol = nodes.map((n) => n.col).reduce((a, b) => a > b ? a : b);
-
     final nodeMap = <String, Offset>{};
 
     // 计算布局尺寸

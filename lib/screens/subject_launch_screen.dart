@@ -1,10 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_theme.dart';
 import '../api_service.dart';
-import '../prompts.dart';
-import '../providers/app_providers.dart';
 import 'learn_screen.dart';
 
 /// 学科启动页 - 系统发布任务式的开局引导
@@ -25,8 +22,7 @@ class SubjectLaunchScreen extends ConsumerStatefulWidget {
 
 class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
     with TickerProviderStateMixin {
-  bool _loading = true;
-  int _step = 0; // 0:扫描 1:任务发布 2:书单 3:技能树 4:准备就绪
+  int _step = 0;
   String? _taskTitle;
   String? _taskDescription;
   List<String>? _recommendedBooks;
@@ -101,7 +97,6 @@ class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
 
     if (!result.success) {
       setState(() {
-        _loading = false;
         _taskTitle = '主线任务：${widget.subject}入门';
         _taskDescription = '任务加载异常，但学习仍可继续。';
         _recommendedBooks = [];
@@ -132,7 +127,6 @@ class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
     }
 
     setState(() {
-      _loading = false;
       _step = 4;
     });
     _fadeCtrl.forward(from: 0);

@@ -65,7 +65,7 @@ class PaperLearningService {
     void flushSection() {
       if (currentType != null && currentLines.isNotEmpty) {
         sections.add(PaperSection(
-          type: currentType!,
+          type: currentType,
           title: currentTitle,
           content: currentLines.join('\n').trim(),
         ));

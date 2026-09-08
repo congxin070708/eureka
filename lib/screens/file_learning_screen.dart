@@ -28,7 +28,6 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
   bool _loading = false;
   bool _answering = false;
   String _currentQuestion = '';
-  String? _currentExplanation;
 
   @override
   void dispose() {
@@ -224,12 +223,6 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
       // 更新得分
       _progress!.setScore(score / 100.0);
     }
-
-    final scoreColor = score >= 80
-        ? const Color(0xFF22c55e)
-        : score >= 60
-            ? const Color(0xFFf59e0b)
-            : const Color(0xFFef4444);
 
     final scoreEmoji = score >= 80
         ? '🎉'
@@ -436,7 +429,7 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
             itemBuilder: (_, i) => ChatBubble(
               msg: _messages[i],
               index: i,
-              onBookmark: () {},
+              onBookmark: (title, content) {},
             ),
           ),
         ),

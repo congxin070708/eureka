@@ -51,6 +51,8 @@ class InputValidation {
     for (final s in subjects.keys) {
       if (s != currentSubject && t == s) return true;
     }
+    // 当前学科不算"其他学科"
+    if (t == currentSubject) return false;
     // 常见学科名单(整词匹配)
     const common = [
       '英语', '数学', '物理', '化学', '生物', '历史', '地理', '政治',

@@ -378,7 +378,6 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
 
     final score = (data['score'] as num?)?.toInt() ?? 0;
-    final baseScore = (data['baseScore'] as num?)?.toInt() ?? 0;
     final bonusScore = (data['bonusScore'] as num?)?.toInt() ?? 0;
     final feedback = data['feedback']?.toString() ?? '';
     final bonusReasons = (data['bonusReasons'] as List?)?.cast<String>() ?? [];
@@ -446,7 +445,6 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
 
     // 更新技能树
-    final tree = engine.getSkillTree(widget.subject);
     if (widget.skillNodeId != null) {
       engine.completeSkillNode(widget.subject, widget.skillNodeId!,
           normalizedScore.clamp(0.0, 1.0));
@@ -624,7 +622,7 @@ ${EurekaPrompts.bossGradingPrompt}''';
 
     // ── 检查升级 ──
     final prevLevel = engine.level;
-    final leveledUp = engine.checkLevelUp();
+    engine.checkLevelUp();
     if (engine.level > prevLevel) {
       final xpGained = score; // 简化：得分就是获得的经验
       final unlocks = <String>[];
@@ -829,11 +827,13 @@ ${EurekaPrompts.bossGradingPrompt}''';
       onResult: (result) {
         _inputController.text = result.recognizedWords;
       },
-      listenFor: const Duration(seconds: 10),
-      pauseFor: const Duration(seconds: 3),
-      partialResults: true,
-      cancelOnError: true,
-      listenMode: stt.ListenMode.confirmation,
+      listenOptions: stt.SpeechListenOptions(
+        listenFor: const Duration(seconds: 10),
+        pauseFor: const Duration(seconds: 3),
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: stt.ListenMode.confirmation,
+      ),
     );
   }
 
@@ -882,12 +882,10 @@ ${EurekaPrompts.bossGradingPrompt}''';
   }
 
   void _showReport() {
-    final engine = ref.read(studyEngineProvider);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => StatsScreen(
-          engine: engine,
           subject: widget.subject,
         ),
       ),

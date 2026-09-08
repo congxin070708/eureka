@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 
 /// ────────────────────────────────────────────
@@ -431,7 +430,7 @@ class TaskProgress {
   double get percent =>
       progress >= _def.target ? 1.0 : progress / _def.target;
 
-  TaskDef get _def => TaskLibrary.get(taskId)!;
+  TaskDef get _def => TaskLibrary.get(taskId);
 
   bool get canClaim => status == TaskStatus.completed;
 
