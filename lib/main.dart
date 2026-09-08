@@ -172,9 +172,9 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: isDark ? Brightness.dark : Brightness.light,
-        textTheme: GoogleFonts.notoSansScTextTheme(ThemeData(
-          brightness: isDark ? Brightness.dark : Brightness.light,
-        ).textTheme),
+        textTheme: GoogleFonts.notoSansScTextTheme(
+          isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+        ),
         scaffoldBackgroundColor: AppTheme.bg,
       ),
       home: _showOnboarding
