@@ -66,7 +66,7 @@ void main() {
     // 场景 2：连续多次高质量回忆（quality>=4）后，间隔应递增
     // ─────────────────────────────────────────────────────────────
     group('场景2 连续高质量回忆间隔递增', () {
-      test('连续答对 5 次，间隔依次 1→3→7→14→30 递增', () {
+      test('连续答对 5 次，间隔依次 1→3→7→14→30→60 递增', () {
         final kp = KnowledgePoint(name: '牛顿第二定律', type: 'memory');
         final seenIntervals = <int>[];
 
@@ -78,8 +78,8 @@ void main() {
           expectIntervalDays(kp, kIntervals[kp.intervalIndex]);
         }
 
-        // 间隔序列应严格递增：1, 3, 7, 14, 30
-        expect(seenIntervals, [1, 3, 7, 14, 30]);
+        // 间隔序列应严格递增：1, 3, 7, 14, 30, 60
+        expect(seenIntervals, [1, 3, 7, 14, 30, 60]);
         // 索引同步递增到 5
         expect(kp.intervalIndex, 5);
       });
