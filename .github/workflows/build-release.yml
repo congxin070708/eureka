@@ -209,28 +209,29 @@ jobs:
 
       - name: Generate release notes
         run: |
-          cat > release_notes.md << 'EOF'
-          ## Eureka v${GITHUB_REF_NAME#v}
+          VERSION=${GITHUB_REF_NAME#v}
+          cat > release_notes.md << EOF
+          ## Eureka v${VERSION}
 
           ### Android 下载
           | 文件 | 适用设备 |
           |------|----------|
-          | `eureka-*-arm64-v8a.apk` | 主流 64 位手机（推荐） |
-          | `eureka-*-armeabi-v7a.apk` | 32 位老旧手机 |
-          | `eureka-*-x86_64.apk` | 模拟器 |
-          | `eureka-*.aab` | Google Play 上架用 |
+          | \`eureka-*-arm64-v8a.apk\` | 主流 64 位手机（推荐） |
+          | \`eureka-*-armeabi-v7a.apk\` | 32 位老旧手机 |
+          | \`eureka-*-x86_64.apk\` | 模拟器 |
+          | \`eureka-*.aab\` | Google Play 上架用 |
 
           ### iOS 下载
-          > `eureka-*-ios-app.zip` 是未签名的 Runner.app。
+          > \`eureka-*-ios-app.zip\` 是未签名的 Runner.app。
           > 需要自行签名后通过 Xcode 安装到设备。
-          > 
+          >
           > **签名步骤**：
           > 1. 解压 zip 得到 Runner.app
           > 2. 用 Xcode 打开项目，配置签名证书
-          > 3. 运行 `flutter build ios --release` 本地构建
+          > 3. 运行 \`flutter build ios --release\` 本地构建
 
           ### Web 下载
-          > `eureka-web-*.zip` 解压后部署到任意静态服务器。
+          > \`eureka-web-*.zip\` 解压后部署到任意静态服务器。
 
           ### 更新内容
           详见 commit 历史。
@@ -239,12 +240,12 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Eureka v${{ github.ref_name }}
+          name: Eureka ${{ github.ref_name }}
           body_path: release_notes.md
           files: |
             release/android/*.apk
             release/android/*.aab
             release/ios/*.zip
             release/eureka-web-*.zip
-          draft: true
+          draft: false
           generate_release_notes: true
