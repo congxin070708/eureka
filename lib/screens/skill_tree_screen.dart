@@ -5,6 +5,8 @@ import '../skill_tree.dart';
 import '../task_system.dart';
 import '../providers/app_providers.dart';
 import 'learn_screen.dart';
+import 'boss_battle_screen.dart';
+import '../boss_battle.dart';
 
 /// 技能树页面 - 天赋树风格可视化
 ///
@@ -560,21 +562,51 @@ class _SkillNodeDetailSheet extends StatelessWidget {
                           ? null
                           : () {
                               Navigator.pop(context);
-                              // 跳转到学习页
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => LearnScreen(
-                                    subject: subject,
-                                    skillNodeId: node.id,
-                                    isBossMode: node.type == SkillType.boss,
+                              if (node.type == SkillType.boss) {
+                                // Boss 战
+                                final config = BossConfig.fromSkillNode(node, subject);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BossBattleScreen(
+                                      config: config,
+                                      subject: subject,
+                                      nodeId: node.id,
+                                    ),
                                   ),
-                                ),
-                              );
+                                ).then((result) {
+                                   if (result is BossBattleResult && result.victory) {
+                                     // 战斗胜利，更新节点状态
+                                     final engine = ref.read(studyEngineProvider.notifier).state;
+                                     final tree = engine.getSkillTree(subject);
+                                     tree.getNode(node.id)
+                                         ?.updateMastery(0.95, isBoss: true);
+                                     engine.addXp(result.expGained);
+                                     engine.taskManager.recordBossCleared();
+                                     engine.checkLevelUp();
+                                     engine.save();
+                                   }
+                                 });
+                              } else {
+                                // 普通学习
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => LearnScreen(
+                                      subject: subject,
+                                      skillNodeId: node.id,
+                                      isBossMode: false,
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isLocked ? AppTheme.border : AppTheme.accent,
+                        backgroundColor: isLocked
+                            ? AppTheme.border
+                            : node.type == SkillType.boss
+                                ? const Color(0xFFef4444)
+                                : AppTheme.accent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -584,8 +616,12 @@ class _SkillNodeDetailSheet extends StatelessWidget {
                         isLocked
                             ? '🔒 未解锁'
                             : isMastered
-                                ? '复习巩固'
-                                : '开始学习',
+                                ? (node.type == SkillType.boss
+                                    ? '再次挑战'
+                                    : '复习巩固')
+                                : (node.type == SkillType.boss
+                                    ? '⚔️ 挑战 Boss'
+                                    : '开始学习'),
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600),
                       ),
