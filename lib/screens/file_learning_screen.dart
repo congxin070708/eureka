@@ -117,7 +117,6 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
     }
 
     _updateLast(result.content);
-    _currentExplanation = result.content;
 
     setState(() => _loading = false);
     _scrollToBottom();
@@ -244,7 +243,6 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
     setState(() {
       _answering = false;
       _currentQuestion = '';
-      _currentExplanation = null;
     });
     _explainCurrentChunk();
   }
@@ -255,7 +253,6 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
     setState(() {
       _answering = false;
       _currentQuestion = '';
-      _currentExplanation = null;
     });
     _explainCurrentChunk();
   }
