@@ -1,4 +1,4 @@
-package com.example.ai_tutor
+package com.eureka.ai
 
 import io.flutter.embedding.android.FlutterActivity
 
