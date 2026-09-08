@@ -318,6 +318,7 @@ $modePrompt
 - missed: 遗漏的要点列表(如果全答对了就放空数组)
 - correct: 学生答对的要点列表
 
+只输出纯 JSON。''';
     final r = await _call(systemPrompt, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
