@@ -18,6 +18,7 @@ import 'file_learning_screen.dart';
 import 'subject_launch_screen.dart';
 import '../skill_tree.dart';
 import '../version.dart';
+import '../preset_courses.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -671,19 +672,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (subjects.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 24),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border),
-        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.menu_book, size: 40, color: AppTheme.textSecondary),
-            const SizedBox(height: 8),
-            Text('还没有学科', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 4),
-            Text('点击下方按钮添加你的第一个学科', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            // 标题
+            Row(
+              children: [
+                Container(width: 3, height: 16, color: AppTheme.accent),
+                const SizedBox(width: 8),
+                Text('快速开始', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                const Spacer(),
+                Text('推荐路线', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // 预置课程卡片列表
+            ...PresetCourses.courses.map((c) => _buildPresetQuickStart(c, e)),
+            const SizedBox(height: 12),
+            // 自定义学科入口
+            GestureDetector(
+              onTap: () => _showAddSubjectDialog(e),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.border, style: BorderStyle.solid),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.add, color: AppTheme.accent, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('自定义学科',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                          const SizedBox(height: 2),
+                          Text('输入任意知识点开始学习（需 API Key）',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -759,6 +802,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  /// 预置课程快速开始卡片（空书架时展示）
+  Widget _buildPresetQuickStart(PresetCourse course, StudyEngine e) {
+    final hasApiKey = ApiService.apiKey.isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            // 将预置科目加入引擎并跳转学习页
+            e.getSubject(course.subject);
+            e.setCurrentSubject(course.subject);
+            _saveEngineSync();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LearnScreen(subject: course.subject),
+              ),
+            ).then((_) => _saveEngineSync());
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(course.emoji, style: const TextStyle(fontSize: 24)),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(course.subject,
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary)),
+                          const SizedBox(width: 6),
+                          Text('· ${course.topic}',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.accent,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        hasApiKey
+                            ? '点击开始学习'
+                            : '体验模式 · 无需 API Key',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: hasApiKey
+                                ? AppTheme.textSecondary
+                                : AppTheme.accent.withValues(alpha: 0.8)),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: AppTheme.textSecondary, size: 20),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

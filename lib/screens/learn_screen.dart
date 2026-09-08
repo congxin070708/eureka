@@ -13,8 +13,11 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/learn_input_bar.dart';
 import '../widgets/demo_panel.dart';
 import '../widgets/level_up_overlay.dart';
+import '../widgets/api_key_guide_sheet.dart';
 import '../skill_tree.dart';
 import '../utils/input_validation.dart';
+import '../preset_courses.dart';
+import '../secure_storage_service.dart';
 import 'stats_screen.dart';
 
 /// 学习页面 - 模块化重构后
@@ -45,6 +48,13 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
   String _lastQ = '';
   String _topic = '';
   int _subjectImportance = 70;
+
+  // 结构化评分：当前题目的答案要点关键词（由 AI 出题时生成）
+  // 评分时用关键词匹配计算确定性分数，LLM 仅提供反馈解释
+  List<String> _currentAnswerKeys = [];
+
+  // 预置课程模式步骤：0=讲解, 1=出题(等待作答), 2=评分完成
+  int _presetStep = 0;
 
   // 语音识别
   late stt.SpeechToText _speech;
@@ -116,6 +126,18 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
           '例如：高等数学、英语、编程、物理学...', isAI: true);
       return;
     }
+
+    // 预置课程模式：无 API Key 且当前科目有预置课程时，走本地流程
+    final preset = PresetCourses.findBySubject(widget.subject);
+    if (ApiService.apiKey.isEmpty && preset != null) {
+      _topic = preset.topic;
+      _presetStep = 0;
+      _updateLast('📋 【系统提示】${widget.subject} · 体验模式\n\n'
+          '当前未配置 API Key，已为你准备内置课程「${preset.topic}」。\n\n'
+          '直接输入任意内容即可开始学习（无需联网）');
+      return;
+    }
+
     if (_messages.isNotEmpty && _messages.last.text.contains('初始化')) {
       _updateLast('📋 【系统提示】${widget.subject}\n\n正在生成学习方案...');
     } else {
@@ -268,6 +290,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
   void _askQuestion(String topic) async {
     _answering = true;
     _topic = topic;
+    _currentAnswerKeys = []; // 清空上一题的答案关键词
     final engine = ref.read(studyEngineProvider);
     final mode = engine.studyMode;
     final kpType = EurekaPrompts.knowledgeTypeLabel(mode);
@@ -296,6 +319,17 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       return;
     }
     _lastQ = data['q'] ?? '';
+    // 存储答案关键词用于结构化评分
+    if (data['answerKeys'] != null && (data['answerKeys'] as List).isNotEmpty) {
+      _currentAnswerKeys = (data['answerKeys'] as List)
+          .map((e) => e.toString())
+          .toList();
+    } else if (data['points'] != null && (data['points'] as List).isNotEmpty) {
+      // 兼容：如果没有 answerKeys，用 points 的简短形式
+      _currentAnswerKeys = (data['points'] as List)
+          .map((e) => e.toString())
+          .toList();
+    }
     String hint = data['hint'] ?? '';
     String msg = '💡 **思考题**\n\n$_lastQ\n';
     if (hint.isNotEmpty) msg += '\n💬 提示：$hint';
@@ -511,29 +545,81 @@ ${EurekaPrompts.bossGradingPrompt}''';
       return;
     }
 
-    final result = await ApiService.scoreAnswer(_lastQ, answer, subject: widget.subject);
-    if (!result.success) {
-      _updateLast('❌ 评分失败\n${result.error}');
-      _answering = false;
-      return;
-    }
-    final data = ApiService.parseJson(result);
-    if (data == null) {
-      _updateLast('❌ AI评分格式异常');
-      _answering = false;
-      return;
-    }
-    int score = data['score'] ?? 0;
-    String feedback = data['feedback'] ?? '';
-    String suggest = data['suggest'] ?? '';
+    // ── 结构化评分：优先使用关键词匹配计算确定性分数 ──
+    int score;
+    String feedback = '';
+    String suggest = '';
     String missed = '';
-    if (data['missed'] != null && (data['missed'] as List).isNotEmpty) {
-      missed = (data['missed'] as List).join('、');
-    }
     String correctPoints = '';
-    if (data['correct'] != null && (data['correct'] as List).isNotEmpty) {
-      correctPoints = (data['correct'] as List).join('、');
+    bool usedStructuredScoring = false;
+
+    if (_currentAnswerKeys.isNotEmpty) {
+      usedStructuredScoring = true;
+      // 1) 本地关键词匹配评分（确定性，不受 LLM 随机性影响）
+      final result = PresetCourses.localScore(answer, _currentAnswerKeys);
+      score = result['score'] as int;
+      final matched = (result['matched'] as List).cast<String>();
+      final missedList = (result['missed'] as List).cast<String>();
+      correctPoints = matched.join('、');
+      missed = missedList.join('、');
+
+      // 2) 调用 LLM 获取反馈解释（非评分，仅解释）
+      final llmResult = await ApiService.scoreAnswer(_lastQ, answer, subject: widget.subject);
+      if (llmResult.success) {
+        final llmData = ApiService.parseJson(llmResult);
+        if (llmData != null) {
+          feedback = llmData['feedback'] ?? '';
+          suggest = llmData['suggest'] ?? '';
+          // 如果 LLM 也返回了 missed/correct，优先用 LLM 的（更语义化）
+          if (llmData['missed'] != null && (llmData['missed'] as List).isNotEmpty) {
+            missed = (llmData['missed'] as List).join('、');
+          }
+          if (llmData['correct'] != null && (llmData['correct'] as List).isNotEmpty) {
+            correctPoints = (llmData['correct'] as List).join('、');
+          }
+        }
+      }
+      // LLM 调用失败时，用本地评分结果生成基础反馈
+      if (feedback.isEmpty) {
+        if (score >= 80) {
+          feedback = '回答中包含了大部分关键要点，理解到位。';
+        } else if (score >= 60) {
+          feedback = '答对了一部分要点，但还有重要的知识点需要补充。';
+        } else if (score >= 30) {
+          feedback = '只答对了少量要点，建议重新回顾讲解内容。';
+        } else {
+          feedback = '答案与关键要点差距较大，请仔细阅读讲解后再试。';
+        }
+      }
+      if (suggest.isEmpty) {
+        suggest = missed.isNotEmpty ? '重点复习：$missed' : '继续保持！';
+      }
+    } else {
+      // 无答案关键词（挑战模式等），回退到纯 LLM 评分
+      final result = await ApiService.scoreAnswer(_lastQ, answer, subject: widget.subject);
+      if (!result.success) {
+        _updateLast('❌ 评分失败\n${result.error}');
+        _answering = false;
+        return;
+      }
+      final data = ApiService.parseJson(result);
+      if (data == null) {
+        _updateLast('❌ AI评分格式异常');
+        _answering = false;
+        return;
+      }
+      score = data['score'] ?? 0;
+      feedback = data['feedback'] ?? '';
+      suggest = data['suggest'] ?? '';
+      if (data['missed'] != null && (data['missed'] as List).isNotEmpty) {
+        missed = (data['missed'] as List).join('、');
+      }
+      if (data['correct'] != null && (data['correct'] as List).isNotEmpty) {
+        correctPoints = (data['correct'] as List).join('、');
+      }
     }
+    // 清空答案关键词，避免下一题误用
+    _currentAnswerKeys = [];
 
     String scoreEmoji;
     String scoreLabel;
@@ -561,7 +647,11 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
 
     String msg = '📊 评分结果\n\n';
-    msg += '$scoreEmoji 得分：$score / 100  ($scoreLabel)\n\n';
+    msg += '$scoreEmoji 得分：$score / 100  ($scoreLabel)\n';
+    if (usedStructuredScoring) {
+      msg += '  （基于答案要点匹配 · 确定性评分）\n';
+    }
+    msg += '\n';
     msg += '📝 $feedback\n\n';
     if (correctPoints.isNotEmpty) msg += '✅ 答对了：$correctPoints\n\n';
     if (missed.isNotEmpty) msg += '📌 还需要掌握：$missed\n\n';
@@ -696,6 +786,14 @@ ${EurekaPrompts.bossGradingPrompt}''';
     _inputController.clear();
     _addMsg('👤', text, isAI: false);
 
+    // 预置课程模式：无 API Key 且当前科目有预置课程时，走本地流程
+    final isPresetMode = ApiService.apiKey.isEmpty;
+    final preset = PresetCourses.findBySubject(widget.subject);
+    if (isPresetMode && preset != null) {
+      _handlePresetMode(preset, text);
+      return;
+    }
+
     if (InputValidation.isOtherSubject(text, widget.subject, engine.subjects)) {
       _addMsg('💡', '「$text」是其他学科。当前在学「${widget.subject}」;\n想学其他学科请返回书架切换。', isAI: true);
       return;
@@ -759,6 +857,12 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
     msg += '\n🤔 思考题：${data['question'] ?? '你理解了吗？用自己的话说说看'}';
     _updateLast(msg);
+    // 存储 teach 返回的答案关键词（如果有，后续 generateQuestion 会覆盖）
+    if (data['answerKeys'] != null && (data['answerKeys'] as List).isNotEmpty) {
+      _currentAnswerKeys = (data['answerKeys'] as List)
+          .map((e) => e.toString())
+          .toList();
+    }
     if (isFollowUp) {
       Future.delayed(const Duration(milliseconds: 500), () {
         _addMsg('💡', '还有想继续问的吗？直接说你的问题，或者输"出题"来一道思考题', isAI: true);
@@ -768,7 +872,87 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
   }
 
+  /// 预置课程模式：完全本地化的「讲解 → 出题 → 评分」流程
+  ///
+  /// 无 API Key 时使用 [PresetCourses] 内置内容，不调用任何 AI 接口。
+  /// 通过 [_presetStep] 跟踪进度：
+  ///   0 = 首次发消息，展示讲解 + 出题
+  ///   1 = 等待用户作答，调用本地评分
+  ///   2 = 评分完成，提示配置 API Key
+  void _handlePresetMode(PresetCourse preset, String text) {
+    switch (_presetStep) {
+      case 0:
+        // 1) 本地讲解（模拟 AI 回复格式）
+        _addMsg(preset.emoji, preset.explanation, isAI: true);
+        // 2) 出题
+        Future.delayed(const Duration(milliseconds: 400), () {
+          _addMsg('💡', '💡 **思考题**\n\n${preset.question}', isAI: true);
+        });
+        setState(() {
+          _presetStep = 1;
+          _topic = preset.topic;
+        });
+        break;
+
+      case 1:
+        // 用户已作答，本地评分
+        _addMsg('📊', '系统评分中...', isAI: true);
+        final result = PresetCourses.localScore(text, preset.answerKeyPoints);
+        final score = result['score'] as int;
+        final matched = (result['matched'] as List).cast<String>();
+        final missed = (result['missed'] as List).cast<String>();
+
+        String scoreEmoji;
+        String scoreLabel;
+        String encourageMsg;
+        if (score >= 90) {
+          scoreEmoji = '🌟';
+          scoreLabel = '神级';
+          encourageMsg = '太棒了！你已经完全掌握了这个知识点 🎉';
+        } else if (score >= 80) {
+          scoreEmoji = '🔥';
+          scoreLabel = '优秀';
+          encourageMsg = '答得很好！差一点就完美了，继续保持！';
+        } else if (score >= 60) {
+          scoreEmoji = '⭐';
+          scoreLabel = '及格';
+          encourageMsg = '还不错！再巩固一下薄弱点就能更上一层楼。';
+        } else if (score >= 30) {
+          scoreEmoji = '📗';
+          scoreLabel = '加油';
+          encourageMsg = '别灰心，回顾一下要点，我们再来一次！';
+        } else {
+          scoreEmoji = '💪';
+          scoreLabel = '继续努力';
+          encourageMsg = '没关系，学习就是不断试错的过程。先看看解析，再试一次！';
+        }
+
+        final matchedStr = matched.isNotEmpty ? matched.join('、') : '';
+        final missedStr = missed.isNotEmpty ? missed.join('、') : '';
+
+        String msg = '📊 评分结果\n\n';
+        msg += '$scoreEmoji 得分：$score / 100  ($scoreLabel)\n\n';
+        if (matchedStr.isNotEmpty) msg += '✅ 答对了：$matchedStr\n\n';
+        if (missedStr.isNotEmpty) msg += '📌 还需要掌握：$missedStr\n\n';
+        msg += '📝 参考答案：\n${preset.referenceAnswer}\n\n';
+        msg += '📖 解析：\n${preset.explanationDetail}\n';
+        msg += '\n$encourageMsg';
+        _updateLast(msg);
+
+        setState(() => _presetStep = 2);
+        _scrollToBottom();
+        break;
+
+      case 2:
+        // 评分已完成，提示配置 API Key 解锁更多
+        _addMsg('🎯', '配置 API Key 后，可以学习更多知识点，'
+            'AI 会根据你的情况个性化出题', isAI: true);
+        break;
+    }
+  }
+
   void _skipQuestion() async {
+    _currentAnswerKeys = []; // 清空答案关键词
     _addMsg('📚', '正在生成参考答案...', isAI: true);
     final result = await ApiService.skipAnswer(_lastQ, subject: widget.subject);
     if (!result.success) {
@@ -925,9 +1109,76 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
   }
 
+  /// 预置模式顶部提示条
+  Widget _buildPresetBanner() {
+    return GestureDetector(
+      onTap: _openApiKeySettings,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        color: AppTheme.accent.withValues(alpha: 0.12),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_open, size: 16, color: Color(0xFFf97316)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '体验模式 · 配置 API Key 解锁完整功能',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 16, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 打开 API Key 配置页（点击 banner 跳转设置）
+  void _openApiKeySettings() {
+    final controller = TextEditingController(text: ApiService.apiKey);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ApiKeyGuideSheet(
+        controller: controller,
+        onSaved: (baseUrl) async {
+          ApiService.apiKey = controller.text.trim();
+          ApiService.customBaseUrl = baseUrl;
+          await SecureStorageService.saveApiKey(ApiService.apiKey);
+          await SecureStorageService.saveBaseUrl(baseUrl);
+          ApiService.clearDetectionCache();
+          if (mounted) Navigator.pop(context);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ApiService.apiKey.isEmpty
+                    ? '⚠️ API Key 不能为空'
+                    : '✅ API Key 已保存，重新进入即可使用完整功能'),
+                backgroundColor: ApiService.apiKey.isEmpty
+                    ? Colors.orange
+                    : AppTheme.success,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            // 保存后刷新界面，隐藏体验模式 banner
+            setState(() {});
+          }
+        },
+        onClosed: () => Navigator.pop(context),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final engine = ref.watch(studyEngineProvider);
+    final isPresetMode = ApiService.apiKey.isEmpty &&
+        PresetCourses.findBySubject(widget.subject) != null;
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
@@ -966,6 +1217,7 @@ ${EurekaPrompts.bossGradingPrompt}''';
       ),
       body: Column(
         children: [
+          if (isPresetMode) _buildPresetBanner(),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,

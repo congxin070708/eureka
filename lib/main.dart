@@ -14,6 +14,7 @@ import 'notification_service.dart';
 import 'voice_service.dart';
 import 'providers/app_providers.dart';
 import 'screens/home_screen.dart';
+import 'screens/learn_screen.dart';
 import 'widgets/onboarding_screen.dart';
 
 void main() async {
@@ -151,10 +152,21 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
     _saveEngineData(engine);
   }
 
-  Future<void> _completeOnboarding() async {
+  Future<void> _completeOnboarding(String? presetSubject) async {
     setState(() => _showOnboarding = false);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
+    if (presetSubject != null) {
+      final engine = ref.read(studyEngineProvider);
+      engine.getSubject(presetSubject);
+      _saveEngineData(engine);
+      // 延迟导航到学习页
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => LearnScreen(subject: presetSubject),
+        ));
+      });
+    }
   }
 
   @override

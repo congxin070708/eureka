@@ -4,15 +4,19 @@ import '../app_theme.dart';
 import 'api_key_guide_sheet.dart';
 import '../api_service.dart';
 import '../secure_storage_service.dart';
+import '../preset_courses.dart';
 
 /// 首次启动引导页
 ///
 /// 三个页面:
 /// 1. 欢迎页 - 介绍尤里卡是什么
 /// 2. 核心功能 - 三大核心特性
-/// 3. API Key 配置 - 引导用户设置 API Key
+/// 3. 选择学习路线 - 零配置预置课程，没有 API Key 也能体验完整流程
 class OnboardingScreen extends ConsumerStatefulWidget {
-  final VoidCallback onCompleted;
+  /// 完成引导回调。
+  /// - [presetSubject] 为 null：用户跳过 / 先逛逛 / 仅配置了 API Key
+  /// - [presetSubject] 非 null：用户选择了某条预置学习路线
+  final void Function(String? presetSubject) onCompleted;
   const OnboardingScreen({super.key, required this.onCompleted});
 
   @override
@@ -23,7 +27,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageCtrl = PageController();
   int _currentPage = 0;
 
+  // 保留：底部 "已有 API Key？去设置" 链接弹出 ApiKeyGuideSheet 时复用
   final _apiKeyController = TextEditingController();
+
+  /// 预置课程的一句话描述（按科目名匹配）
+  static const Map<String, String> _presetDescriptions = {
+    '高等数学': '从 ε-δ 语言到经典极限 sin(x)/x',
+    '线性代数': '行乘以列，理解为什么不满足交换律',
+    '大学物理': 'F=ma，从无摩擦到有摩擦的实际计算',
+  };
 
   @override
   void dispose() {
@@ -41,13 +53,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  /// 保存 API Key 后完成引导（不选择预置课程）
   void _finishSetup() async {
     final key = _apiKeyController.text.trim();
     if (key.isNotEmpty) {
       ApiService.apiKey = key;
       await SecureStorageService.saveApiKey(key);
     }
-    widget.onCompleted();
+    widget.onCompleted(null);
+  }
+
+  /// 弹出 API Key 配置引导页（底部 "已有 API Key？去设置" 入口）
+  void _showApiKeyGuide() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ApiKeyGuideSheet(
+        controller: _apiKeyController,
+        onSaved: (baseUrl) {
+          ApiService.customBaseUrl = baseUrl;
+          SecureStorageService.saveBaseUrl(baseUrl);
+          Navigator.pop(context);
+          _finishSetup();
+        },
+        onClosed: () => Navigator.pop(context),
+      ),
+    );
   }
 
   @override
@@ -61,7 +93,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
-                onPressed: widget.onCompleted,
+                onPressed: () => widget.onCompleted(null),
                 child: Text('跳过', style: TextStyle(color: AppTheme.textSecondary)),
               ),
             ),
@@ -73,7 +105,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   _buildWelcomePage(),
                   _buildFeaturesPage(),
-                  _buildApiKeyPage(),
+                  _buildPresetPage(),
                 ],
               ),
             ),
@@ -102,7 +134,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _currentPage < 2 ? _nextPage : _finishSetup,
+                      onPressed: _currentPage < 2
+                          ? _nextPage
+                          : () => widget.onCompleted(null),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accent,
                         shape: RoundedRectangleBorder(
@@ -111,7 +145,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        _currentPage < 2 ? '下一步' : '开始学习之旅',
+                        _currentPage < 2 ? '下一步' : '先逛逛看',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -119,7 +153,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   if (_currentPage < 2) ...[
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: widget.onCompleted,
+                      onPressed: () => widget.onCompleted(null),
                       child: Text('先随便看看',
                           style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                     ),
@@ -169,26 +203,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            '你的 AI 学习伙伴',
+            '理工科大学生的 AI 学伴',
             style: TextStyle(fontSize: 16, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 32),
           _buildHighlightItem(
             icon: '🧠',
             title: '掌握度门控',
-            desc: '没学会？不让走。真正掌握了再前进',
+            desc: '概念没吃透？不让走。真正理解了再进下一个',
           ),
           const SizedBox(height: 14),
           _buildHighlightItem(
             icon: '🔄',
             title: '遗忘曲线复习',
-            desc: '科学安排复习时间，记忆更持久',
+            desc: 'SM-2 算法安排复习，考前不遗忘',
           ),
           const SizedBox(height: 14),
           _buildHighlightItem(
             icon: '🎯',
             title: '个性化出题',
-            desc: 'AI 根据你的薄弱点，针对性训练',
+            desc: 'AI 根据你的薄弱点出题，告别盲目刷题',
           ),
         ],
       ),
@@ -243,32 +277,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '科学闭环，让知识从「见过」到「掌握」',
+            '从「上课听过」到「考试会做」的科学闭环',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 32),
           _buildStepTile(
             step: '01',
             title: 'AI 讲解',
-            desc: '输入想学的知识点，AI 系统化讲解，配生活化类比',
+            desc: '输入知识点，AI 系统化讲解，配生活化类比帮助理解',
           ),
           _buildStepDivider(),
           _buildStepTile(
             step: '02',
             title: '主动思考',
-            desc: 'AI 出思考题，用自己的话回答，不是被动选择',
+            desc: 'AI 出思考题，用自己的话回答，不是选择题蒙答案',
           ),
           _buildStepDivider(),
           _buildStepTile(
             step: '03',
             title: '掌握度评估',
-            desc: 'AI 评分反馈，实时计算掌握度，未达标继续练',
+            desc: 'AI 评分反馈，掌握度不达标继续练，直到真懂',
           ),
           _buildStepDivider(),
           _buildStepTile(
             step: '04',
             title: '间隔复习',
-            desc: '智能安排复习，在遗忘临界点及时巩固',
+            desc: 'SM-2 算法智能安排复习，在遗忘临界点及时巩固',
           ),
         ],
       ),
@@ -316,18 +350,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  // ── 第3页: API Key ──
-  Widget _buildApiKeyPage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+  // ── 第3页: 选择学习路线（零配置预置课程） ──
+  Widget _buildPresetPage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.key, size: 48, color: Color(0xFFf97316)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Text(
-            '设置你的 API Key',
+            '选择学习路线',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -336,90 +368,105 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '尤里卡使用 AI 来生成讲解和题目，需要你自己的 API Key。',
-            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary, height: 1.6),
+            '先体验完整学习闭环，无需注册',
+            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.accent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
+          // 3 条预置课程卡片
+          ...PresetCourses.courses.map((c) => _buildPresetCard(c)),
+          const SizedBox(height: 8),
+          // 已有 API Key 引导
+          Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _showApiKeyGuide,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.key, size: 14, color: AppTheme.accent),
+                  const SizedBox(width: 6),
+                  Text('已有 API Key？去设置',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.accent,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
             ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  /// 单个预置课程卡片：emoji + 科目 + 知识点 + 一句话描述
+  Widget _buildPresetCard(PresetCourse course) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => widget.onCompleted(course.subject),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('🔒', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'API Key 加密存储在你的设备本地，不会上传到任何服务器。'
-                    '你可以随时在设置中修改或删除。',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.6),
+                // emoji 圆角方块
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(course.emoji, style: const TextStyle(fontSize: 24)),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _apiKeyController,
-            style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
-            decoration: InputDecoration(
-              labelText: 'API Key',
-              hintText: 'sk-xxxxxxxxxxxxxxxxxxxxxxxx',
-              labelStyle: TextStyle(color: AppTheme.textSecondary),
-              hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4)),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.accent, width: 2),
-              ),
-            ),
-            obscureText: true,
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => ApiKeyGuideSheet(
-                  controller: _apiKeyController,
-                  onSaved: (baseUrl) {
-                    ApiService.customBaseUrl = baseUrl;
-                    SecureStorageService.saveBaseUrl(baseUrl);
-                    Navigator.pop(context);
-                    _finishSetup();
-                  },
-                  onClosed: () => Navigator.pop(context),
+                const SizedBox(width: 14),
+                // 科目 + 知识点 + 描述
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(course.subject,
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary)),
+                          const SizedBox(width: 8),
+                          Text('· ${course.topic}',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.accent,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _presetDescriptions[course.subject] ?? '体验完整学习闭环',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                            height: 1.5),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
-            child: Row(
-              children: [
-                Icon(Icons.help_outline, size: 14, color: AppTheme.accent),
-                const SizedBox(width: 6),
-                Text('不知道怎么获取？查看详细教程',
-                    style: TextStyle(fontSize: 12, color: AppTheme.accent, fontWeight: FontWeight.w500)),
+                Icon(Icons.chevron_right, color: AppTheme.textSecondary, size: 20),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            '💡 提示：没有 API Key 也可以先浏览，但答题等 AI 功能需要配置后才能使用。',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.6),
-          ),
-        ],
+        ),
       ),
     );
   }
