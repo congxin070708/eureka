@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
+import '../voice_service.dart';
 
 /// 聊天消息模型 - 从 learn_screen.dart 抽取
 class ChatMsg {
@@ -23,7 +24,8 @@ class ChatMsg {
 
 /// 消息气泡组件 - 从 learn_screen.dart 抽取
 /// 渲染系统消息面板、普通AI消息和用户消息三种样式
-class ChatBubble extends StatelessWidget {
+/// AI 消息和系统消息支持语音朗读
+class ChatBubble extends StatefulWidget {
   final ChatMsg msg;
   final int index;
   final void Function(String title, String content)? onBookmark;
@@ -36,14 +38,42 @@ class ChatBubble extends StatelessWidget {
   });
 
   @override
+  State<ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<ChatBubble> {
+  bool _isSpeaking = false;
+
+  void _toggleSpeak() {
+    if (_isSpeaking) {
+      VoiceService.stop();
+      setState(() => _isSpeaking = false);
+    } else {
+      VoiceService.speak(widget.msg.text);
+      setState(() => _isSpeaking = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    // 如果这条消息正在朗读，停止它
+    if (_isSpeaking) {
+      VoiceService.stop();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final msg = widget.msg;
     // 检测系统消息(含特定 emoji 前缀)
     final isSystem = msg.text.startsWith('📋') ||
         msg.text.startsWith('📖') ||
         msg.text.startsWith('💡') ||
         msg.text.startsWith('📊') ||
         msg.text.startsWith('🎯') ||
-        msg.text.startsWith('❌');
+        msg.text.startsWith('❌') ||
+        msg.text.startsWith('👹');
 
     if (msg.isAI) {
       if (isSystem) {
@@ -55,8 +85,45 @@ class ChatBubble extends StatelessWidget {
     }
   }
 
+  /// 语音朗读按钮
+  Widget _buildSpeakButton({bool isLight = false}) {
+    if (!VoiceService.isTtsAvailable) return const SizedBox.shrink();
+    return GestureDetector(
+      onTap: _toggleSpeak,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: (isLight ? Colors.white : AppTheme.accent).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: (isLight ? Colors.white : AppTheme.accent).withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _isSpeaking ? Icons.stop_rounded : Icons.volume_up_rounded,
+              size: 13,
+              color: isLight ? Colors.white70 : AppTheme.accentLight,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              _isSpeaking ? '停止' : '朗读',
+              style: TextStyle(
+                fontSize: 11,
+                color: isLight ? Colors.white70 : AppTheme.accentLight,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 系统面板风格(可收藏)
   Widget _buildSystemBubble() {
+    final msg = widget.msg;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
@@ -79,44 +146,50 @@ class ChatBubble extends StatelessWidget {
                 fontFamily: 'monospace',
               ),
             ),
-            // 可收藏的消息显示收藏按钮
-            if (msg.text.startsWith('📖') || msg.text.startsWith('📊'))
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: GestureDetector(
-                  onTap: () {
-                    final cleaned = msg.text
-                        .replaceAll(RegExp(r'[*#\n]'), '')
-                        .trim();
-                    final title = cleaned.length > 30
-                        ? cleaned.substring(0, 30)
-                        : cleaned;
-                    onBookmark?.call(title, msg.text);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                          color: AppTheme.accent.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bookmark_border,
-                            size: 14, color: AppTheme.accentLight),
-                        const SizedBox(width: 4),
-                        Text('收藏',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.accentLight)),
-                      ],
+            const SizedBox(height: 8),
+            // 按钮行：朗读 + 收藏
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildSpeakButton(),
+                const SizedBox(width: 8),
+                // 可收藏的消息显示收藏按钮
+                if (msg.text.startsWith('📖') || msg.text.startsWith('📊'))
+                  GestureDetector(
+                    onTap: () {
+                      final cleaned = msg.text
+                          .replaceAll(RegExp(r'[*#\n]'), '')
+                          .trim();
+                      final title = cleaned.length > 30
+                          ? cleaned.substring(0, 30)
+                          : cleaned;
+                      widget.onBookmark?.call(title, msg.text);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: AppTheme.accent.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.bookmark_border,
+                              size: 14, color: AppTheme.accentLight),
+                          const SizedBox(width: 4),
+                          Text('收藏',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.accentLight)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+              ],
+            ),
           ],
         ),
       ),
@@ -125,6 +198,7 @@ class ChatBubble extends StatelessWidget {
 
   /// 普通AI消息
   Widget _buildAIBubble() {
+    final msg = widget.msg;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -155,12 +229,19 @@ class ChatBubble extends StatelessWidget {
                   bottomRight: Radius.circular(14),
                 ),
               ),
-              child: SelectableText(
-                msg.text,
-                style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textPrimary,
-                    height: 1.7),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    msg.text,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textPrimary,
+                        height: 1.7),
+                  ),
+                  const SizedBox(height: 6),
+                  _buildSpeakButton(),
+                ],
               ),
             ),
           ),
@@ -171,6 +252,7 @@ class ChatBubble extends StatelessWidget {
 
   /// 用户消息
   Widget _buildUserBubble() {
+    final msg = widget.msg;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(

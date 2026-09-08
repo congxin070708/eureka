@@ -1,171 +1,17 @@
 import 'dart:convert';
+import 'smart_content_detector.dart';
 
 /// 文件学习服务
 ///
 /// 功能:
 /// - 读取文本/代码文件
-/// - 智能分段（按段落/函数/类）
+/// - 智能分段（委托给 SmartContentDetector 自动检测内容类型并选择最优策略）
 /// - 生成针对每段的理解问题
 /// - 评估用户对每段的理解程度
 class FileLearningService {
-  /// 分段策略
+  /// 分段策略 - 使用 SmartContentDetector 自动检测内容类型
   static List<String> splitContent(String content, String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
-
-    // 代码文件：按函数/类分段
-    if (_isCodeFile(ext)) {
-      return _splitCode(content, ext);
-    }
-
-    // 文本文件：按段落/章节分段
-    return _splitText(content);
-  }
-
-  static bool _isCodeFile(String ext) {
-    const codeExts = {
-      'dart', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'h',
-      'go', 'rs', 'rb', 'php', 'swift', 'kt', 'scala',
-      'html', 'css', 'json', 'yaml', 'yml', 'xml',
-      'sh', 'bash', 'sql',
-    };
-    return codeExts.contains(ext);
-  }
-
-  /// 代码分段：按类/函数/大段落分割
-  static List<String> _splitCode(String content, String ext) {
-    final lines = content.split('\n');
-    final chunks = <String>[];
-    final currentChunk = <String>[];
-    int braceDepth = 0;
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-
-      // 检测类/函数定义（各种语言的常见模式）
-      final isTopLevelDef = _isTopLevelDefinition(trimmed, ext) && braceDepth == 0;
-
-      if (isTopLevelDef && currentChunk.isNotEmpty) {
-        // 保存前一段
-        final chunk = currentChunk.join('\n').trim();
-        if (chunk.isNotEmpty) chunks.add(chunk);
-        currentChunk.clear();
-        braceDepth = 0;
-      }
-
-      currentChunk.add(line);
-
-      // 计算花括号深度
-      braceDepth += '{'.allMatches(line).length;
-      braceDepth -= '}'.allMatches(line).length;
-
-      // 段太大了就强制分割（超过 50 行）
-      if (currentChunk.length > 50 && braceDepth == 0) {
-        final chunk = currentChunk.join('\n').trim();
-        if (chunk.isNotEmpty) chunks.add(chunk);
-        currentChunk.clear();
-      }
-    }
-
-    // 最后一段
-    final lastChunk = currentChunk.join('\n').trim();
-    if (lastChunk.isNotEmpty) chunks.add(lastChunk);
-
-    // 如果段太少，强制按行拆分
-    if (chunks.length < 2 && lines.length > 30) {
-      return _splitByLines(lines, 30);
-    }
-
-    // 每段加行号
-    return _addLineNumbers(chunks);
-  }
-
-  static bool _isTopLevelDefinition(String line, String ext) {
-    final patterns = [
-      // 类定义
-      r'^class\s+\w+',
-      // 函数/方法定义
-      r'^(def|func|function|fn|defun)\s+\w+',
-      r'^(void|int|string|bool|float|double|char|public|private|protected)\s+\w+\s*\(',
-      r'^const\s+\w+\s*=\s*\(',
-      // 接口/结构体
-      r'^(interface|struct|enum|typedef)\s+\w+',
-      // Python 异步函数
-      r'^async\s+def\s+\w+',
-      // Go
-      r'^func\s+\w+',
-      // Rust
-      r'^impl\s+\w+',
-      r'^pub\s+fn\s+\w+',
-    ];
-
-    for (final p in patterns) {
-      if (RegExp(p).hasMatch(line)) return true;
-    }
-    return false;
-  }
-
-  /// 文本分段：按空行/标题分段
-  static List<String> _splitText(String content) {
-    // 先按双换行分割段落
-    final paragraphs = content.split(RegExp(r'\n\s*\n'));
-    final chunks = <String>[];
-    final currentBuffer = StringBuffer();
-
-    for (final para in paragraphs) {
-      final trimmed = para.trim();
-      if (trimmed.isEmpty) continue;
-
-      // 检测标题行（# 开头或短行 + 加粗）
-      final isHeading = trimmed.startsWith('#') ||
-          (trimmed.length < 50 && RegExp(r'^[一二三四五六七八九十\d]+[、.．]').hasMatch(trimmed));
-
-      if (isHeading && currentBuffer.isNotEmpty) {
-        chunks.add(currentBuffer.toString().trim());
-        currentBuffer.clear();
-      }
-
-      currentBuffer.writeln(trimmed);
-
-      // 段落太长就强制分割（约 1000 字）
-      if (currentBuffer.length > 1000) {
-        chunks.add(currentBuffer.toString().trim());
-        currentBuffer.clear();
-      }
-    }
-
-    if (currentBuffer.isNotEmpty) {
-      chunks.add(currentBuffer.toString().trim());
-    }
-
-    // 如果段太少，按行拆
-    if (chunks.length < 2) {
-      final lines = content.split('\n').where((l) => l.trim().isNotEmpty).toList();
-      return _splitByLines(lines, 20);
-    }
-
-    return chunks;
-  }
-
-  /// 按行数分段
-  static List<String> _splitByLines(List<String> lines, int linesPerChunk) {
-    final chunks = <String>[];
-    for (int i = 0; i < lines.length; i += linesPerChunk) {
-      final end = (i + linesPerChunk < lines.length) ? i + linesPerChunk : lines.length;
-      chunks.add(lines.sublist(i, end).join('\n'));
-    }
-    return _addLineNumbers(chunks);
-  }
-
-  /// 给每段加上行号范围
-  static List<String> _addLineNumbers(List<String> chunks) {
-    int lineNum = 1;
-    return chunks.map((chunk) {
-      final lineCount = '\n'.allMatches(chunk).length + 1;
-      final endLine = lineNum + lineCount - 1;
-      final header = '// ── 第 $lineNum - $endLine 行 ──';
-      lineNum = endLine + 1;
-      return '$header\n$chunk';
-    }).toList();
+    return SmartContentDetector.segment(content, fileName);
   }
 
   /// 生成针对某段代码/文本的讲解 prompt
