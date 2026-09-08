@@ -255,12 +255,12 @@ class _SpeakButtonState extends State<_SpeakButton> {
   @override
   void initState() {
     super.initState();
-    VoiceService.onSpeakingStateChanged = _onSpeakingStateChanged;
+    VoiceService.addListener(_onSpeakingStateChanged);
   }
 
   @override
   void dispose() {
-    VoiceService.onSpeakingStateChanged = null;
+    VoiceService.removeListener(_onSpeakingStateChanged);
     super.dispose();
   }
 

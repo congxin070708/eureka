@@ -25,8 +25,25 @@ class VoiceService {
   static bool get isListening => _speech.isListening;
   static bool get isSpeaking => _isSpeaking;
 
-  // TTS 状态变化回调（供 UI 监听）
-  static void Function(bool speaking)? onSpeakingStateChanged;
+  // TTS 状态变化监听器列表（支持多个 UI 同时监听）
+  static final List<void Function(bool speaking)> _listeners = [];
+
+  /// 注册状态监听
+  static void addListener(void Function(bool speaking) listener) {
+    _listeners.add(listener);
+  }
+
+  /// 移除状态监听
+  static void removeListener(void Function(bool speaking) listener) {
+    _listeners.remove(listener);
+  }
+
+  /// 通知所有监听器
+  static void _notifyListeners(bool speaking) {
+    for (final listener in _listeners) {
+      listener(speaking);
+    }
+  }
 
   /// 初始化 TTS
   static Future<bool> initTts() async {
@@ -42,19 +59,19 @@ class VoiceService {
       // 设置 TTS 状态回调
       _tts.setStartHandler(() {
         _isSpeaking = true;
-        onSpeakingStateChanged?.call(true);
+        _notifyListeners(true);
       });
       _tts.setCompletionHandler(() {
         _isSpeaking = false;
-        onSpeakingStateChanged?.call(false);
+        _notifyListeners(false);
       });
       _tts.setCancelHandler(() {
         _isSpeaking = false;
-        onSpeakingStateChanged?.call(false);
+        _notifyListeners(false);
       });
       _tts.setErrorHandler((_) {
         _isSpeaking = false;
-        onSpeakingStateChanged?.call(false);
+        _notifyListeners(false);
       });
 
       _ttsReady = true;
@@ -89,12 +106,12 @@ class VoiceService {
     try {
       await _tts.stop();
       _isSpeaking = true;
-      onSpeakingStateChanged?.call(true);
+      _notifyListeners(true);
       await _tts.speak(text);
       return true;
     } catch (e) {
       _isSpeaking = false;
-      onSpeakingStateChanged?.call(false);
+      _notifyListeners(false);
       return false;
     }
   }
@@ -105,13 +122,15 @@ class VoiceService {
       await _tts.stop();
     }
     _isSpeaking = false;
-    onSpeakingStateChanged?.call(false);
+    _notifyListeners(false);
   }
 
   /// 暂停朗读
   static Future<void> pause() async {
     if (_ttsReady) {
       await _tts.pause();
+      _isSpeaking = false;
+      _notifyListeners(false);
     }
   }
 
