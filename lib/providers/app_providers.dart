@@ -15,24 +15,7 @@ class StudyEngineNotifier extends StudyEngine with ChangeNotifier {
       final fileData = await FileStorageService.loadEngineData();
       if (fileData != null) {
         final loaded = StudyEngine.fromJson(fileData);
-        // 把加载的数据合并到当前实例
-        level = loaded.level;
-        xp = loaded.xp;
-        xpNext = loaded.xpNext;
-        totalXp = loaded.totalXp;
-        totalQ = loaded.totalQ;
-        totalCorrect = loaded.totalCorrect;
-        streak = loaded.streak;
-        bestStreak = loaded.bestStreak;
-        totalStudyMinutes = loaded.totalStudyMinutes;
-        studyMode = loaded.studyMode;
-        currentSubject = loaded.currentSubject;
-        subjects = loaded.subjects;
-        history = loaded.history;
-        dailyRecords = loaded.dailyRecords;
-        chatHistory = loaded.chatHistory;
-        bookmarks = loaded.bookmarks;
-        notifyListeners();
+        replaceEngine(loaded);
       }
     } catch (_) {}
   }
@@ -55,6 +38,14 @@ class StudyEngineNotifier extends StudyEngine with ChangeNotifier {
     dailyRecords = other.dailyRecords;
     chatHistory = other.chatHistory;
     bookmarks = other.bookmarks;
+    // 技能树 / 任务 / 背包 / 积分 / 抽奖保底
+    skillTrees = other.skillTrees;
+    taskManager = other.taskManager;
+    inventory = other.inventory;
+    systemCredits = other.systemCredits;
+    equippedTitle = other.equippedTitle;
+    gachaPityEpic = other.gachaPityEpic;
+    gachaPityLegend = other.gachaPityLegend;
     notifyListeners();
   }
 
