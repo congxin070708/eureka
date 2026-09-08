@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
-[![version](https://img.shields.io/badge/version-v2.0.0-5b4bd5)](https://github.com/congxin070708/eureka/releases)
+[![version](https://img.shields.io/badge/version-v1.2.0-5b4bd5)](https://github.com/congxin070708/eureka/releases)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions)](https://github.com/congxin070708/eureka/actions)
 
 Eureka（尤里卡）是一款基于 **掌握度门控 + 遗忘曲线复习 + 游戏化激励** 的 AI 学习强化训练应用。
@@ -147,7 +147,7 @@ flutter build web --release --web-renderer html
 ## 🧱 技术栈
 
 - **框架**: Flutter 3.x (Dart 3.x)
-- **状态管理**: Riverpod (ChangeNotifierProvider)
+- **状态管理**: Riverpod (NotifierProvider / ChangeNotifier)
 - **本地存储**:
   - `path_provider` + JSON 文件（学习数据）
   - `flutter_secure_storage`（API Key 加密存储）
@@ -230,7 +230,7 @@ flutter test test/input_validation_test.dart
 
 | 工作流 | 文件 | 触发条件 | 产出 |
 |--------|------|----------|------|
-| **Build Release** | `build-release.yml` | 打 `v*` tag | Android APK (3架构) + AAB + iOS (验证编译) + Web + Draft Release |
+| **Build Release** | `build-release.yml` | 打 `v*` tag | Android APK (3架构) + AAB + iOS (验证编译) + Web + GitHub Release |
 | **PR Check** | `pr-check.yml` | PR / push to main | Flutter analyze + 单元测试 + Android/Web 构建检查 |
 
 详细打包发布指南见 [DEPLOY.md](docs/DEPLOY.md)。

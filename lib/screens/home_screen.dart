@@ -919,17 +919,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onSaved: (baseUrl) async {
                         ApiService.apiKey = controller.text.trim();
                         ApiService.customBaseUrl = baseUrl;
-                        await SecureStorageService.saveApiKey(ApiService.apiKey);
-                        await SecureStorageService.saveBaseUrl(baseUrl);
+                        final keyOk = await SecureStorageService.saveApiKey(ApiService.apiKey);
+                        final urlOk = await SecureStorageService.saveBaseUrl(baseUrl);
                         ApiService.clearDetectionCache();
                         if (context.mounted) Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('✅ API Key 已保存'),
-                            backgroundColor: AppTheme.taskDone,
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(keyOk && urlOk
+                                  ? '✅ API Key 已保存'
+                                  : '⚠️ 保存失败，请检查系统存储权限'),
+                              backgroundColor: keyOk && urlOk
+                                  ? AppTheme.taskDone
+                                  : Colors.orange,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
                       onClosed: () => Navigator.pop(context),
                     ),

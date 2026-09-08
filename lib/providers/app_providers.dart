@@ -17,7 +17,9 @@ class StudyEngineNotifier extends StudyEngine with ChangeNotifier {
         final loaded = StudyEngine.fromJson(fileData);
         replaceEngine(loaded);
       }
-    } catch (_) {}
+    } catch (_) {
+      // 加载失败时保持现有引擎数据不变，不影响应用启动
+    }
   }
 
   /// 用外部引擎替换全部数据

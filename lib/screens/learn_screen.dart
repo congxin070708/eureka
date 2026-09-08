@@ -81,7 +81,9 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
             return;
           }
         }
-      } catch (_) {}
+      } catch (_) {
+        // 历史记录读取或类型转换失败时忽略，继续后续初始化流程
+      }
       await Future.delayed(const Duration(milliseconds: 300));
     }
     if (_messages.length == 1 && _messages[0].text == '初始化中...') {
@@ -849,7 +851,9 @@ ${EurekaPrompts.bossGradingPrompt}''';
           engine.chatHistory[key] = _cappedMessages();
         }
         await FileStorageService.save({'engine_data': engine.toJson()});
-      } catch (_) {}
+      } catch (_) {
+        // 防抖保存失败时忽略，下次输入会再次触发保存
+      }
     });
   }
 

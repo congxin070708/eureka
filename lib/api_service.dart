@@ -456,7 +456,9 @@ $modePrompt
       try {
         final err = jsonDecode(resp.body);
         errorMsg = err['error']?['message'] ?? errorMsg;
-      } catch (_) {}
+      } catch (_) {
+        // 响应体非合法 JSON，保持默认错误信息
+      }
 
       return ApiDetectionResult(
         success: false,
