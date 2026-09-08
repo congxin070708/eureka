@@ -1,7 +1,7 @@
 name: eureka
 description: Eureka (尤里卡) - AI学习强化训练应用
 publish_to: 'none'
-version: 2.0.0+1
+version: 1.2.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
