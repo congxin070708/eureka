@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
-[![version](https://img.shields.io/badge/version-v1.2.0-5b4bd5)](https://github.com/congxin070708/eureka/releases)
+[![version](https://img.shields.io/badge/v2.0.0-5b4bd5?logo=semver)](https://github.com/congxin070708/eureka/releases)
 
 Eureka（尤里卡）是一款基于 **掌握度门控 + 遗忘曲线复习** 的 AI 学习强化训练应用。
 不只是"学过"，而是真正"学会"。

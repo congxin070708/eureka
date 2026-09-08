@@ -41,6 +41,9 @@ class StudyEngine {
   int systemCredits = 0; // 系统积分（通用货币）
   String? equippedTitle;  // 当前装备的称号
 
+  // ── 抽奖保底状态 ──
+  GachaPityState gachaPity = GachaPityState();
+
   int get accuracy => totalQ > 0 ? (totalCorrect * 100 ~/ totalQ) : 0;
   int get xpPercent => (xp * 100 ~/ xpNext);
 
@@ -291,7 +294,9 @@ class StudyEngine {
     final result = GachaSystem.drawOne(
       _seededRandom(rng),
       ownedItemIds,
+      gachaPity,
     );
+    GachaSystem.updatePity(gachaPity, result);
     addItem(result.itemId, count: result.count);
     return result;
   }
@@ -301,7 +306,7 @@ class StudyEngine {
     final tickets = getItemCount('gacha_ticket');
     if (tickets < n) return [];
     for (int i = 0; i < n; i++) useItem('gacha_ticket');
-    final results = GachaSystem.drawMany(n, ownedItemIds);
+    final results = GachaSystem.drawMany(n, ownedItemIds, gachaPity);
     for (final r in results) {
       addItem(r.itemId, count: r.count);
     }
@@ -345,6 +350,7 @@ class StudyEngine {
     'inventory': inventory.map((i) => i.toJson()).toList(),
     'systemCredits': systemCredits,
     'equippedTitle': equippedTitle,
+    'gachaPity': gachaPity.toJson(),
   };
 
   factory StudyEngine.fromJson(Map<String, dynamic> json) {
@@ -404,6 +410,10 @@ class StudyEngine {
     }
     e.systemCredits = json['systemCredits'] as int? ?? 0;
     e.equippedTitle = json['equippedTitle'] as String?;
+    if (json['gachaPity'] != null) {
+      e.gachaPity = GachaPityState.fromJson(
+          Map<String, dynamic>.from(json['gachaPity']));
+    }
     return e;
   }
 }

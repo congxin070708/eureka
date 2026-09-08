@@ -1,7 +1,7 @@
 name: eureka
 description: Eureka (尤里卡) - AI学习强化训练应用
 publish_to: 'none'
-version: 1.2.0+3
+version: 2.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -19,6 +19,8 @@ dependencies:
   file_picker: ^8.1.2
   timezone: ^0.9.4
   flutter_riverpod: ^2.5.1
+  google_fonts: ^6.2.1
+  flutter_tts: ^4.2.0
 
 dev_dependencies:
   flutter_test:
@@ -28,7 +30,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
-  fonts:
-    - family: AppFont
-      fonts:
-        - asset: assets/fonts/NotoSansCJK-Regular.ttc

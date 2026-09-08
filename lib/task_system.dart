@@ -172,17 +172,38 @@ class GachaResult {
   final int count;
   final ItemDef item;
   final bool isNew; // 是否是新获得的（之前没有）
+  final bool isPity; // 是否是保底出的
 
   GachaResult({
     required this.itemId,
     required this.count,
     required this.item,
     required this.isNew,
+    this.isPity = false,
   });
+}
+
+/// 抽奖保底状态
+class GachaPityState {
+  int epicPity;       // 距离上次 epic+ 的抽数
+  int legendaryPity;  // 距离上次 legendary 的抽数
+
+  GachaPityState({this.epicPity = 0, this.legendaryPity = 0});
+
+  Map<String, dynamic> toJson() => {
+    'epicPity': epicPity,
+    'legendaryPity': legendaryPity,
+  };
+
+  factory GachaPityState.fromJson(Map<String, dynamic> json) => GachaPityState(
+    epicPity: json['epicPity'] as int? ?? 0,
+    legendaryPity: json['legendaryPity'] as int? ?? 0,
+  );
 }
 
 /// 抽奖系统
 class GachaSystem {
+  // ── 奖池配置 ──
   static const List<GachaEntry> _pool = [
     GachaEntry(itemId: 'exp_card_s', weight: 30, minCount: 1, maxCount: 2),
     GachaEntry(itemId: 'hint_card', weight: 25, minCount: 1, maxCount: 3),
@@ -194,16 +215,63 @@ class GachaSystem {
     GachaEntry(itemId: 'title_master', weight: 1, minCount: 1, maxCount: 1),
   ];
 
-  static double get _totalWeight =>
-      _pool.fold(0.0, (sum, e) => sum + e.weight);
+  // ── 保底配置 ──
+  static const int epicSoftPityStart = 15;   // epic 软保底起始
+  static const int epicHardPity = 30;       // epic 硬保底（必出）
+  static const int legendarySoftPityStart = 50; // legendary 软保底起始
+  static const int legendaryHardPity = 90;  // legendary 硬保底（必出）
 
-  /// 抽一次
-  static GachaResult drawOne(Random rng, Set<String> ownedItems) {
-    final roll = rng.nextDouble() * _totalWeight;
+  /// 获取条目对应的稀有度
+  static ItemRarity _rarityOf(String itemId) =>
+      ItemLibrary.get(itemId)?.rarity ?? ItemRarity.common;
+
+  /// 计算带保底的权重
+  static double _adjustedWeight(GachaEntry entry, GachaPityState pity) {
+    double weight = entry.weight;
+    final rarity = _rarityOf(entry.itemId);
+
+    // epic 软保底：超过 15 抽后，每抽增加 epic+ 权重
+    if (pity.epicPity >= epicSoftPityStart &&
+        (rarity == ItemRarity.epic || rarity == ItemRarity.legendary)) {
+      final extraPity = pity.epicPity - epicSoftPityStart + 1;
+      // 每多一抽，权重增加 20%
+      weight *= (1 + 0.2 * extraPity);
+    }
+
+    // legendary 软保底：超过 50 抽后，每抽增加 legendary 权重
+    if (pity.legendaryPity >= legendarySoftPityStart &&
+        rarity == ItemRarity.legendary) {
+      final extraPity = pity.legendaryPity - legendarySoftPityStart + 1;
+      weight *= (1 + 0.3 * extraPity);
+    }
+
+    return weight;
+  }
+
+  static double _totalWeight(GachaPityState pity) =>
+      _pool.fold(0.0, (sum, e) => sum + _adjustedWeight(e, pity));
+
+  /// 抽一次（带保底）
+  static GachaResult drawOne(Random rng, Set<String> ownedItems, GachaPityState pity) {
+    // 硬保底检测
+    bool forceEpic = pity.epicPity >= epicHardPity - 1;
+    bool forceLegendary = pity.legendaryPity >= legendaryHardPity - 1;
+
+    List<GachaEntry> pool = _pool;
+    if (forceLegendary) {
+      pool = _pool.where((e) => _rarityOf(e.itemId) == ItemRarity.legendary).toList();
+    } else if (forceEpic) {
+      pool = _pool.where((e) =>
+          _rarityOf(e.itemId) == ItemRarity.epic ||
+          _rarityOf(e.itemId) == ItemRarity.legendary).toList();
+    }
+
+    double totalW = pool.fold(0.0, (sum, e) => sum + _adjustedWeight(e, pity));
+    final roll = rng.nextDouble() * totalW;
     double cumulative = 0;
 
-    for (final entry in _pool) {
-      cumulative += entry.weight;
+    for (final entry in pool) {
+      cumulative += _adjustedWeight(entry, pity);
       if (roll <= cumulative) {
         final count = entry.minCount +
             rng.nextInt(entry.maxCount - entry.minCount + 1);
@@ -214,30 +282,50 @@ class GachaSystem {
           count: count,
           item: item,
           isNew: isNew,
+          isPity: forceEpic || forceLegendary,
         );
       }
     }
 
-    // 默认返回提示卡
-    final item = ItemLibrary.get('hint_card')!;
+    // 保底
+    final fallback = pool.first;
+    final item = ItemLibrary.get(fallback.itemId)!;
     return GachaResult(
-      itemId: 'hint_card',
+      itemId: fallback.itemId,
       count: 1,
       item: item,
-      isNew: !ownedItems.contains('hint_card'),
+      isNew: !ownedItems.contains(fallback.itemId),
+      isPity: true,
     );
   }
 
+  /// 更新保底计数
+  static void updatePity(GachaPityState pity, GachaResult result) {
+    final rarity = result.item.rarity;
+
+    if (rarity == ItemRarity.legendary) {
+      pity.legendaryPity = 0;
+      pity.epicPity = 0;
+    } else if (rarity == ItemRarity.epic) {
+      pity.epicPity = 0;
+      pity.legendaryPity++;
+    } else {
+      pity.epicPity++;
+      pity.legendaryPity++;
+    }
+  }
+
   /// 连抽 N 次
-  static List<GachaResult> drawMany(int n, Set<String> ownedItems) {
+  static List<GachaResult> drawMany(int n, Set<String> ownedItems, GachaPityState pity) {
     final rng = Random();
     final results = <GachaResult>[];
     final currentOwned = Set<String>.from(ownedItems);
 
     for (int i = 0; i < n; i++) {
-      final result = drawOne(rng, currentOwned);
+      final result = drawOne(rng, currentOwned, pity);
       results.add(result);
       currentOwned.add(result.itemId);
+      updatePity(pity, result);
     }
 
     return results;

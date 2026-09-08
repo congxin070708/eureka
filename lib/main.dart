@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
 import 'file_storage_service.dart';
@@ -149,7 +150,9 @@ class _EurekaAppState extends ConsumerState<EurekaApp>
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: isDark ? Brightness.dark : Brightness.light,
-        fontFamily: 'AppFont',
+        textTheme: GoogleFonts.notoSansScTextTheme(
+          Theme.of(context).textTheme,
+        ),
         scaffoldBackgroundColor: AppTheme.bg,
       ),
       home: _showOnboarding
