@@ -139,7 +139,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           children: [
             SelectableText(
               msg.text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.textPrimary,
                 height: 1.7,
@@ -234,7 +234,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                 children: [
                   SelectableText(
                     msg.text,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textPrimary,
                         height: 1.7),

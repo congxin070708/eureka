@@ -77,6 +77,19 @@ class StudyEngine {
 
   bool get hasBookmarks => bookmarks.isNotEmpty;
 
+  // ── 科目管理 ──
+  void setCurrentSubject(String name) {
+    currentSubject = name;
+    subjects.putIfAbsent(name, () => SubjectData());
+  }
+
+  void removeSubject(String name) {
+    subjects.remove(name);
+    chatHistory.remove(name);
+    skillTrees.remove(name);
+    if (currentSubject == name) currentSubject = '';
+  }
+
   // ── 学习计时 ──
   void addStudyMinutes(int minutes) {
     totalStudyMinutes += minutes;

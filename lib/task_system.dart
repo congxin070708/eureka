@@ -561,6 +561,7 @@ class TaskLibrary {
 
 /// 任务管理器
 class TaskManager {
+  TaskManager(); // 默认构造函数
   final Map<String, TaskProgress> _progresses = {};
   String lastDailyReset = '';
 

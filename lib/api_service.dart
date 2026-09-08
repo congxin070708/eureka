@@ -338,6 +338,11 @@ $modePrompt
     return _wrapJson(r.content);
   }
 
+  /// 通用聊天接口（Boss 出题/评分等场景直接用）
+  static Future<ApiResult> chat(String userMsg, {String? systemPrompt}) {
+    return _call(systemPrompt ?? EurekaPrompts.systemTutor, userMsg);
+  }
+
   /// 工具：从成功ApiResult中解析JSON
   static Map<String, dynamic>? parseJson(ApiResult r) {
     if (!r.success) return null;

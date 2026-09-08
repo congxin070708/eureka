@@ -125,7 +125,7 @@ class LearnInputBar extends StatelessWidget {
                   controller: controller,
                   maxLines: 4,
                   minLines: 1,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary, fontSize: 15),
                   decoration: InputDecoration(
                     hintText: hint,

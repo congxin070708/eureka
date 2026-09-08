@@ -229,7 +229,7 @@ void main() {
       expect(due.length, 1);
       expect(due[0].subject, '数学');
       expect(due[0].knowledgePoint.name, '极限');
-      expect(due[0].isUrgent, true); // 过期2天 >= 3? 不,2 < 3
+      expect(due[0].isUrgent, false); // 过期2天 < 3天阈值,不算紧急
       expect(due[0].overdueDays, 2);
     });
 

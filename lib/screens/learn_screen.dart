@@ -831,6 +831,9 @@ ${EurekaPrompts.bossGradingPrompt}''';
       },
       listenFor: const Duration(seconds: 10),
       pauseFor: const Duration(seconds: 3),
+      partialResults: true,
+      cancelOnError: true,
+      listenMode: stt.ListenMode.confirmation,
     );
   }
 

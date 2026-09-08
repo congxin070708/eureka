@@ -447,7 +447,7 @@ class _UnlockToastWidgetState extends State<_UnlockToastWidget>
                     color: AppTheme.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.lock_open, color: AppTheme.accent, size: 22),
+                  child: Icon(Icons.lock_open, color: AppTheme.accent, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

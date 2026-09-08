@@ -210,7 +210,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
       children: [
         Row(
           children: [
-            const Text('📅 今日',
+            Text('📅 今日',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -224,7 +224,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('📅 本周',
+            Text('📅 本周',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

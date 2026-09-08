@@ -17,6 +17,9 @@ class DemoPanel extends StatelessWidget {
     required this.subject,
   });
 
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+
   void show(BuildContext context) {
     if (!kDemoMode) return;
     showModalBottomSheet(
