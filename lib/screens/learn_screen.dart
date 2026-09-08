@@ -281,7 +281,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       return;
     }
 
-    final result = await ApiService.generateQuestion(topic, mode: mode);
+    final result = await ApiService.generateQuestion(topic, mode: mode, subject: widget.subject);
     if (!result.success) {
       _updateLast('❌ 出题失败\n${result.error}');
       _answering = false;
@@ -309,6 +309,7 @@ ${EurekaPrompts.bossQuestionPrompt}''';
     final result = await ApiService.chat(
       prompt,
       systemPrompt: '你是一位擅长出应用题的老师，题目要有代入感。',
+      subject: widget.subject,
     );
 
     if (!result.success) {
@@ -356,6 +357,7 @@ ${EurekaPrompts.bossGradingPrompt}''';
     final result = await ApiService.chat(
       prompt,
       systemPrompt: EurekaPrompts.systemStrictGrader,
+      subject: widget.subject,
     );
 
     if (!result.success) {
@@ -507,7 +509,7 @@ ${EurekaPrompts.bossGradingPrompt}''';
       return;
     }
 
-    final result = await ApiService.scoreAnswer(_lastQ, answer);
+    final result = await ApiService.scoreAnswer(_lastQ, answer, subject: widget.subject);
     if (!result.success) {
       _updateLast('❌ 评分失败\n${result.error}');
       _answering = false;
@@ -730,7 +732,7 @@ ${EurekaPrompts.bossGradingPrompt}''';
     _addMsg('🤖', '正在思考...', isAI: true);
     final isFollowUp = InputValidation.isFollowUp(text);
     final result = await ApiService.teach(text,
-        mode: engine.studyMode, history: _buildHistory());
+        mode: engine.studyMode, subject: widget.subject, history: _buildHistory());
     _loading = false;
     if (!result.success) {
       _updateLast('❌ 系统错误\n${result.error}');
@@ -766,7 +768,7 @@ ${EurekaPrompts.bossGradingPrompt}''';
 
   void _skipQuestion() async {
     _addMsg('📚', '正在生成参考答案...', isAI: true);
-    final result = await ApiService.skipAnswer(_lastQ);
+    final result = await ApiService.skipAnswer(_lastQ, subject: widget.subject);
     if (!result.success) {
       _updateLast('❌ 获取答案失败\n${result.error}');
       return;

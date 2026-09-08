@@ -26,6 +26,20 @@ class EurekaPrompts {
 - 专业术语第一次出现时可以加括号标注英文
 ''';
 
+  /// ── 科目限定（插入到 system prompt 中，防止跑题） ──
+  static String subjectGuard(String subject) {
+    if (subject.trim().isEmpty) return '';
+    return '''
+
+【重要：科目边界】
+当前学习科目是「$subject」。你只能讨论与「$subject」相关的内容。
+- 如果学生问的问题与$subject无关，礼貌地说："这个话题和我们现在学的「$subject」不太相关哦，我们还是回到$subject的学习上来吧~"
+- 不要回答其他学科的问题，哪怕你知道答案
+- 如果学生想换科目学习，告诉他可以回到首页选择其他科目
+- 如果学生问的是学习方法、时间管理等通用学习技巧，可以简短回答，但不要展开
+''';
+  }
+
   /// ── 严格评分的身份设定 ──
   static const String systemStrictGrader = '''
 你是「尤里卡」的严格评卷老师。

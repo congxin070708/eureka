@@ -213,6 +213,7 @@ class ApiService {
     final seeds = ['入门推荐看这本', '经典必读', '过来人强推', '口碑最好的', '豆瓣高分'];
     final seed = seeds[DateTime.now().millisecondsSinceEpoch % seeds.length];
     final modePrompt = EurekaPrompts.modeDescription(mode);
+    final systemPrompt = EurekaPrompts.systemTutor + EurekaPrompts.subjectGuard(subject);
 
     final userPrompt = '''
 学生想学「$subject」。$extraHint
@@ -239,7 +240,7 @@ $modePrompt
 {"welcome":"...","stages":[{"level":"入门","books":[{"name":"...","author":"...","value":85,"reason":"...","tag":"$seed"}]}],"topics":["..."]}
 只输出纯 JSON,不要加任何其他文字。''';
 
-    final r = await _call(EurekaPrompts.systemTutor, userPrompt,
+    final r = await _call(systemPrompt, userPrompt,
         cacheKey: 'start_${subject}_$mode');
     if (!r.success) return r;
     return _wrapJson(r.content);
@@ -247,8 +248,9 @@ $modePrompt
 
   /// 讲解知识点
   static Future<ApiResult> teach(String topic,
-      {String mode = '深度', List<Map<String, String>>? history}) async {
+      {String mode = '深度', String subject = '', List<Map<String, String>>? history}) async {
     final modePrompt = EurekaPrompts.modeDescription(mode);
+    final systemPrompt = EurekaPrompts.systemTutor + EurekaPrompts.subjectGuard(subject);
     final userPrompt = '''
 $modePrompt
 
@@ -261,14 +263,15 @@ $modePrompt
 - analogy: 一个生活化的类比/例子(帮助理解抽象概念)
 
 只输出纯 JSON,不要加其他说明。''';
-    final r = await _call(EurekaPrompts.systemTutor, userPrompt, history: history);
+    final r = await _call(systemPrompt, userPrompt, history: history);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
   /// 生成考题
-  static Future<ApiResult> generateQuestion(String topic, {String mode = '深度'}) async {
+  static Future<ApiResult> generateQuestion(String topic, {String mode = '深度', String subject = ''}) async {
     final modePrompt = EurekaPrompts.modeDescription(mode);
+    final systemPrompt = EurekaPrompts.systemTutor + EurekaPrompts.subjectGuard(subject);
     final userPrompt = '''
 $modePrompt
 
@@ -286,13 +289,14 @@ $modePrompt
 - difficulty: 难度等级(简单/中等/困难)
 
 只输出纯 JSON。''';
-    final r = await _call(EurekaPrompts.systemTutor, userPrompt);
+    final r = await _call(systemPrompt, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
   /// 评分学生答案
-  static Future<ApiResult> scoreAnswer(String question, String answer) async {
+  static Future<ApiResult> scoreAnswer(String question, String answer, {String subject = ''}) async {
+    final systemPrompt = EurekaPrompts.systemStrictGrader + EurekaPrompts.subjectGuard(subject);
     final userPrompt = '''
 题目: $question
 
@@ -314,14 +318,14 @@ $modePrompt
 - missed: 遗漏的要点列表(如果全答对了就放空数组)
 - correct: 学生答对的要点列表
 
-只输出纯 JSON。''';
-    final r = await _call(EurekaPrompts.systemStrictGrader, userPrompt);
+    final r = await _call(systemPrompt, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
   /// 跳过问题：给出参考答案
-  static Future<ApiResult> skipAnswer(String question) async {
+  static Future<ApiResult> skipAnswer(String question, {String subject = ''}) async {
+    final systemPrompt = EurekaPrompts.systemTutor + EurekaPrompts.subjectGuard(subject);
     final userPrompt = '''
 学生跳过了这道题: $question
 
@@ -333,14 +337,15 @@ $modePrompt
 语气要鼓励,告诉学生跳过也没关系,看懂了下次就会了。
 
 只输出纯 JSON。''';
-    final r = await _call(EurekaPrompts.systemTutor, userPrompt);
+    final r = await _call(systemPrompt, userPrompt);
     if (!r.success) return r;
     return _wrapJson(r.content);
   }
 
   /// 通用聊天接口（Boss 出题/评分等场景直接用）
-  static Future<ApiResult> chat(String userMsg, {String? systemPrompt}) {
-    return _call(systemPrompt ?? EurekaPrompts.systemTutor, userMsg);
+  static Future<ApiResult> chat(String userMsg, {String? systemPrompt, String subject = ''}) {
+    final sys = (systemPrompt ?? EurekaPrompts.systemTutor) + EurekaPrompts.subjectGuard(subject);
+    return _call(sys, userMsg);
   }
 
   /// 工具：从成功ApiResult中解析JSON

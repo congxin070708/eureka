@@ -93,6 +93,7 @@ class _SubjectLaunchScreenState extends ConsumerState<SubjectLaunchScreen>
     final result = await ApiService.chat(
       prompt,
       systemPrompt: '你是"学霸系统"的内置 AI，语气冷静正式，有科技感。',
+      subject: widget.subject,
     );
 
     if (!result.success) {
