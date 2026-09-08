@@ -3,9 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// 安全存储服务 - 使用平台级加密存储敏感数据
 /// Android: Keystore | iOS: Keychain
 class SecureStorageService {
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static const _storage = FlutterSecureStorage();
 
   static const _keyApiKey = 'api_key';
   static const _keyBaseUrl = 'base_url';
