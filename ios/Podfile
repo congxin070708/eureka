@@ -4,13 +4,30 @@ platform :ios, '15.0'
 # CocoaPods analytics sends network stats to Segments and Google Analytics.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-project 'Runner.xcodeproj'
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
 
-flutter_root = File.expand_path('..', __dir__)
-require File.expand_path('flutter/pod_helpers.rb', flutter_root)
+def flutter_root
+  generated_xcode_build_settings = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __dir__)
+  raise unless File.exist?(generated_xcode_build_settings)
+
+  File.foreach(generated_xcode_build_settings) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in Generated.xcconfig. Try running flutter pub get."
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
+  use_frameworks! :linkage => :static if ENV['FLUTTER_FRAMEWORKS_PATH'] || ENV['FLUTTER_ENGINE_USE_FRAMEWORKS']
   flutter_install_all_ios_pods File.expand_path('..', __dir__)
   target 'RunnerTests' do
     inherit! :search_paths
@@ -20,9 +37,5 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
-    end
   end
 end
