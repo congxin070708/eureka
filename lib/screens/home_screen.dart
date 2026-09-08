@@ -16,6 +16,7 @@ import 'skill_tree_screen.dart';
 import 'gacha_screen.dart';
 import 'file_learning_screen.dart';
 import 'subject_launch_screen.dart';
+import 'knowledge_base_screen.dart';
 import '../skill_tree.dart';
 import '../version.dart';
 import '../preset_courses.dart';
@@ -367,6 +368,77 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                       const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 快速入口：知识库 ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const KnowledgeBaseScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF0ea5e9),
+                        const Color(0xFF0284c7),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0ea5e9).withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.library_books, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '知识库',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '上传文档，RAG 问答 + 引导阅读',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
                     ],
                   ),
                 ),

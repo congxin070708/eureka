@@ -512,6 +512,57 @@ $modePrompt
   static void clearDetectionCache() {
     _cachedDetection = null;
   }
+
+  // ── Embedding 向量接口 ──
+
+  /// Embedding 模型（按后端）
+  static String get embeddingModel {
+    switch (_backendByPrefix) {
+      case 'bailian': return 'text-embedding-v3';
+      case 'openai': return 'text-embedding-3-small';
+      case 'siliconflow': return 'BAAI/bge-m3';
+      default: return 'deepseek-embedding'; // DeepSeek 官方 embedding
+    }
+  }
+
+  /// 批量生成文本向量
+  /// 返回 List<List<double>>，顺序与输入 texts 一致
+  static Future<List<List<double>>> getEmbeddings(List<String> texts) async {
+    final key = apiKey.trim();
+    if (key.isEmpty) throw Exception('请先在设置中填入 API Key');
+    if (texts.isEmpty) return [];
+
+    final url = '$baseUrlRoot/embeddings';
+    try {
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $key',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': embeddingModel,
+          'input': texts,
+          'encoding_format': 'float',
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final List<dynamic> list = data['data'] ?? [];
+        // 按 index 排序，确保顺序正确
+        list.sort((a, b) => (a['index'] ?? 0).compareTo(b['index'] ?? 0));
+        return list.map((item) {
+          final emb = item['embedding'] as List;
+          return emb.map((e) => (e as num).toDouble()).toList();
+        }).toList();
+      } else {
+        throw Exception('Embedding 失败: ${resp.statusCode} ${resp.body}');
+      }
+    } catch (e) {
+      throw Exception('Embedding 请求失败: $e');
+    }
+  }
 }
 
 /// API 检测结果
