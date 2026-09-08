@@ -172,12 +172,14 @@ class GachaResult {
   final int count;
   final ItemDef item;
   final bool isNew; // 是否是新获得的（之前没有）
+  final bool isPityHit; // 是否触发了保底
 
   GachaResult({
     required this.itemId,
     required this.count,
     required this.item,
     required this.isNew,
+    this.isPityHit = false,
   });
 }
 
@@ -194,26 +196,109 @@ class GachaSystem {
     GachaEntry(itemId: 'title_master', weight: 1, minCount: 1, maxCount: 1),
   ];
 
-  static double get _totalWeight =>
-      _pool.fold(0.0, (sum, e) => sum + e.weight);
+  /// 保底阈值
+  static const int softPityEpic = 50;    // 50 抽没出史诗+，开始提升概率
+  static const int hardPityEpic = 70;    // 70 抽没出史诗+，硬保底必出
+  static const int softPityLegend = 70;  // 70 抽没出传说，开始提升概率
+  static const int hardPityLegend = 100; // 100 抽没出传说，硬保底必出
+
+  /// 计算带保底加成后的权重表
+  ///
+  /// [pityEpic] 距离上次出史诗+的抽数
+  /// [pityLegend] 距离上次出传说的抽数
+  static List<GachaEntry> _poolWithPity(int pityEpic, int pityLegend) {
+    final pool = _pool.map((e) => GachaEntry(
+      itemId: e.itemId,
+      weight: e.weight,
+      minCount: e.minCount,
+      maxCount: e.maxCount,
+    )).toList();
+
+    // 硬保底：必出传说
+    if (pityLegend >= hardPityLegend) {
+      // 只留传说
+      return pool.where((e) =>
+        ItemLibrary.get(e.itemId)!.rarity == ItemRarity.legendary
+      ).toList();
+    }
+
+    // 硬保底：必出史诗+
+    if (pityEpic >= hardPityEpic) {
+      // 只留史诗和传说
+      return pool.where((e) {
+        final r = ItemLibrary.get(e.itemId)!.rarity;
+        return r == ItemRarity.epic || r == ItemRarity.legendary;
+      }).toList();
+    }
+
+    // 软保底：提升史诗+概率
+    if (pityEpic >= softPityEpic) {
+      final boost = 1.0 + (pityEpic - softPityEpic) * 0.15; // 每抽 +15%
+      for (int i = 0; i < pool.length; i++) {
+        final e = pool[i];
+        final r = ItemLibrary.get(e.itemId)!.rarity;
+        if (r == ItemRarity.epic || r == ItemRarity.legendary) {
+          pool[i] = GachaEntry(
+            itemId: e.itemId,
+            weight: e.weight * boost,
+            minCount: e.minCount,
+            maxCount: e.maxCount,
+          );
+        }
+      }
+    }
+
+    // 软保底：提升传说概率
+    if (pityLegend >= softPityLegend) {
+      final boost = 1.0 + (pityLegend - softPityLegend) * 0.1; // 每抽 +10%
+      for (int i = 0; i < pool.length; i++) {
+        final e = pool[i];
+        final r = ItemLibrary.get(e.itemId)!.rarity;
+        if (r == ItemRarity.legendary) {
+          pool[i] = GachaEntry(
+            itemId: e.itemId,
+            weight: e.weight * boost,
+            minCount: e.minCount,
+            maxCount: e.maxCount,
+          );
+        }
+      }
+    }
+
+    return pool;
+  }
 
   /// 抽一次
-  static GachaResult drawOne(Random rng, Set<String> ownedItems) {
-    final roll = rng.nextDouble() * _totalWeight;
+  ///
+  /// [pityEpic] 距离上次出史诗+的抽数（由调用方维护）
+  /// [pityLegend] 距离上次出传说的抽数
+  static GachaResult drawOne(
+    Random rng,
+    Set<String> ownedItems, {
+    int pityEpic = 0,
+    int pityLegend = 0,
+  }) {
+    final pool = _poolWithPity(pityEpic, pityLegend);
+    final totalWeight = pool.fold(0.0, (sum, e) => sum + e.weight);
+    final roll = rng.nextDouble() * totalWeight;
     double cumulative = 0;
 
-    for (final entry in _pool) {
+    for (final entry in pool) {
       cumulative += entry.weight;
       if (roll <= cumulative) {
         final count = entry.minCount +
             rng.nextInt(entry.maxCount - entry.minCount + 1);
         final item = ItemLibrary.get(entry.itemId)!;
         final isNew = !ownedItems.contains(entry.itemId);
+        final isPityHit = (item.rarity == ItemRarity.epic ||
+            item.rarity == ItemRarity.legendary) &&
+            (pityEpic >= softPityEpic || pityLegend >= softPityLegend);
         return GachaResult(
           itemId: entry.itemId,
           count: count,
           item: item,
           isNew: isNew,
+          isPityHit: isPityHit,
         );
       }
     }
@@ -229,15 +314,40 @@ class GachaSystem {
   }
 
   /// 连抽 N 次
-  static List<GachaResult> drawMany(int n, Set<String> ownedItems) {
+  ///
+  /// [pityEpic] 和 [pityLegend] 会随抽取结果动态更新并返回
+  static List<GachaResult> drawMany(
+    int n,
+    Set<String> ownedItems, {
+    int pityEpic = 0,
+    int pityLegend = 0,
+  }) {
     final rng = Random();
     final results = <GachaResult>[];
     final currentOwned = Set<String>.from(ownedItems);
+    int curPityEpic = pityEpic;
+    int curPityLegend = pityLegend;
 
     for (int i = 0; i < n; i++) {
-      final result = drawOne(rng, currentOwned);
+      final result = drawOne(
+        rng, currentOwned,
+        pityEpic: curPityEpic,
+        pityLegend: curPityLegend,
+      );
       results.add(result);
       currentOwned.add(result.itemId);
+
+      // 更新保底计数
+      if (result.item.rarity == ItemRarity.legendary) {
+        curPityEpic = 0;
+        curPityLegend = 0;
+      } else if (result.item.rarity == ItemRarity.epic) {
+        curPityEpic = 0;
+        curPityLegend++;
+      } else {
+        curPityEpic++;
+        curPityLegend++;
+      }
     }
 
     return results;

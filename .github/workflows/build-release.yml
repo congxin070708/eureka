@@ -1,0 +1,255 @@
+name: Build Release (Android + iOS + Web)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如 2.0.0)'
+        required: true
+        default: '2.0.0'
+
+env:
+  FLUTTER_VERSION: '3.29.0'
+  JAVA_VERSION: '17'
+  XCODE_VERSION: '15.4'
+
+jobs:
+  # ───────── Android 构建 ─────────
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.get_version.outputs.version_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${GITHUB_REF_NAME#v}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version_name=$VERSION" >> $GITHUB_OUTPUT
+          echo "构建版本: $VERSION"
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build APK (split per ABI)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+
+      - name: Rename APK files
+        run: |
+          VERSION=${{ steps.get_version.outputs.version_name }}
+          cd build/app/outputs/flutter-apk
+          mv app-arm64-v8a-release.apk eureka-${VERSION}-arm64-v8a.apk
+          mv app-armeabi-v7a-release.apk eureka-${VERSION}-armeabi-v7a.apk
+          mv app-x86_64-release.apk eureka-${VERSION}-x86_64.apk
+          ls -lh *.apk
+
+      - name: Rename App Bundle
+        run: |
+          VERSION=${{ steps.get_version.outputs.version_name }}
+          cd build/app/outputs/bundle/release
+          mv app-release.aab eureka-${VERSION}.aab
+          ls -lh *.aab
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/eureka-*.apk
+
+      - name: Upload App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/eureka-*.aab
+
+  # ───────── iOS 构建 ─────────
+  ios:
+    name: Build iOS
+    runs-on: macos-14
+    outputs:
+      version_name: ${{ steps.get_version.outputs.version_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          architecture: arm64
+          cache: true
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${GITHUB_REF_NAME#v}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version_name=$VERSION" >> $GITHUB_OUTPUT
+          echo "构建版本: $VERSION"
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build iOS (no code sign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Zip iOS app
+        run: |
+          VERSION=${{ steps.get_version.outputs.version_name }}
+          cd build/ios/iphoneos
+          zip -r eureka-${VERSION}-ios-app.zip Runner.app
+          ls -lh *.zip
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: build/ios/iphoneos/eureka-*.zip
+
+  # ───────── Web 构建 ─────────
+  web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release --web-renderer canvaskit
+
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+
+  # ───────── 创建 Release ─────────
+  release:
+    name: Create GitHub Release
+    needs: [android, ios, web]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: release/android
+
+      - name: Download Android AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+          path: release/android
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-app
+          path: release/ios
+
+      - name: Download Web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: release/web
+
+      - name: Zip web build
+        run: |
+          cd release
+          zip -r eureka-web-${GITHUB_REF_NAME#v}.zip web/
+
+      - name: Generate release notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## Eureka v${GITHUB_REF_NAME#v}
+
+          ### Android 下载
+          | 文件 | 适用设备 |
+          |------|----------|
+          | `eureka-*-arm64-v8a.apk` | 主流 64 位手机（推荐） |
+          | `eureka-*-armeabi-v7a.apk` | 32 位老旧手机 |
+          | `eureka-*-x86_64.apk` | 模拟器 |
+          | `eureka-*.aab` | Google Play 上架用 |
+
+          ### iOS 下载
+          > `eureka-*-ios-app.zip` 是未签名的 Runner.app。
+          > 需要自行签名后通过 Xcode 安装到设备。
+          > 
+          > **签名步骤**：
+          > 1. 解压 zip 得到 Runner.app
+          > 2. 用 Xcode 打开项目，配置签名证书
+          > 3. 运行 `flutter build ios --release` 本地构建
+
+          ### Web 下载
+          > `eureka-web-*.zip` 解压后部署到任意静态服务器。
+
+          ### 更新内容
+          详见 commit 历史。
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Eureka v${{ github.ref_name }}
+          body_path: release_notes.md
+          files: |
+            release/android/*.apk
+            release/android/*.aab
+            release/ios/*.zip
+            release/eureka-web-*.zip
+          draft: true
+          generate_release_notes: true

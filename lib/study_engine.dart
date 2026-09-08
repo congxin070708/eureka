@@ -41,6 +41,10 @@ class StudyEngine {
   int systemCredits = 0; // 系统积分（通用货币）
   String? equippedTitle;  // 当前装备的称号
 
+  // ── 抽奖保底计数 ──
+  int gachaPityEpic = 0;   // 距离上次出史诗+的抽数
+  int gachaPityLegend = 0; // 距离上次出传说的抽数
+
   int get accuracy => totalQ > 0 ? (totalCorrect * 100 ~/ totalQ) : 0;
   int get xpPercent => (xp * 100 ~/ xpNext);
 
@@ -291,8 +295,23 @@ class StudyEngine {
     final result = GachaSystem.drawOne(
       _seededRandom(rng),
       ownedItemIds,
+      pityEpic: gachaPityEpic,
+      pityLegend: gachaPityLegend,
     );
     addItem(result.itemId, count: result.count);
+
+    // 更新保底计数
+    if (result.item.rarity == ItemRarity.legendary) {
+      gachaPityEpic = 0;
+      gachaPityLegend = 0;
+    } else if (result.item.rarity == ItemRarity.epic) {
+      gachaPityEpic = 0;
+      gachaPityLegend++;
+    } else {
+      gachaPityEpic++;
+      gachaPityLegend++;
+    }
+
     return result;
   }
 
@@ -301,10 +320,31 @@ class StudyEngine {
     final tickets = getItemCount('gacha_ticket');
     if (tickets < n) return [];
     for (int i = 0; i < n; i++) useItem('gacha_ticket');
-    final results = GachaSystem.drawMany(n, ownedItemIds);
+    final results = GachaSystem.drawMany(
+      n, ownedItemIds,
+      pityEpic: gachaPityEpic,
+      pityLegend: gachaPityLegend,
+    );
     for (final r in results) {
       addItem(r.itemId, count: r.count);
     }
+
+    // 更新保底计数（用最后一次结果）
+    if (results.isNotEmpty) {
+      final last = results.last;
+      if (last.item.rarity == ItemRarity.legendary) {
+        gachaPityEpic = 0;
+        gachaPityLegend = 0;
+      } else if (last.item.rarity == ItemRarity.epic) {
+        gachaPityEpic = 0;
+        gachaPityLegend = 1; // epic 出了，legend pity 从 1 开始
+      } else {
+        // 没出史诗+，pity 全部 +n
+        gachaPityEpic += n;
+        gachaPityLegend += n;
+      }
+    }
+
     return results;
   }
 
@@ -345,6 +385,8 @@ class StudyEngine {
     'inventory': inventory.map((i) => i.toJson()).toList(),
     'systemCredits': systemCredits,
     'equippedTitle': equippedTitle,
+    'gachaPityEpic': gachaPityEpic,
+    'gachaPityLegend': gachaPityLegend,
   };
 
   factory StudyEngine.fromJson(Map<String, dynamic> json) {
@@ -404,6 +446,8 @@ class StudyEngine {
     }
     e.systemCredits = json['systemCredits'] as int? ?? 0;
     e.equippedTitle = json['equippedTitle'] as String?;
+    e.gachaPityEpic = json['gachaPityEpic'] as int? ?? 0;
+    e.gachaPityLegend = json['gachaPityLegend'] as int? ?? 0;
     return e;
   }
 }
