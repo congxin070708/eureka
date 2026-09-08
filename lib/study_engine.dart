@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'skill_tree.dart';
 import 'task_system.dart';
+import 'paper_learning_service.dart';
 
 /// 学习引擎 - 管理等级/XP/成就/收藏/统计/技能树/任务/背包
 class StudyEngine {
@@ -32,6 +33,9 @@ class StudyEngine {
 
   // ── 技能树系统 ──
   Map<String, SkillTree> skillTrees = {}; // subject -> SkillTree
+
+  // ── 论文学习系统 ──
+  Map<String, PaperLearningProgress> paperLearning = {}; // fileName -> progress
 
   // ── 任务系统 ──
   TaskManager taskManager = TaskManager();
@@ -341,6 +345,7 @@ class StudyEngine {
     }).toList())),
     // 技能树/任务/背包
     'skillTrees': skillTrees.map((k, v) => MapEntry(k, v.toJson())),
+    'paperLearning': paperLearning.map((k, v) => MapEntry(k, v.toJson())),
     'taskManager': taskManager.toJson(),
     'inventory': inventory.map((i) => i.toJson()).toList(),
     'systemCredits': systemCredits,
@@ -388,6 +393,14 @@ class StudyEngine {
     if (json['skillTrees'] != null) {
       (json['skillTrees'] as Map).forEach((k, v) {
         e.skillTrees[k] = SkillTree.fromJson(Map<String, dynamic>.from(v));
+      });
+    }
+    // 论文学习
+    if (json['paperLearning'] != null) {
+      (json['paperLearning'] as Map).forEach((k, v) {
+        e.paperLearning[k] = PaperLearningProgress.fromJson(
+          Map<String, dynamic>.from(v),
+        );
       });
     }
     // 任务系统
