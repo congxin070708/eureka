@@ -15,7 +15,6 @@ import 'subject_launch_screen.dart';
 import 'knowledge_base_screen.dart';
 import 'settings_screen.dart';
 import 'profile_screen.dart';
-import 'about_screen.dart';
 import '../skill_tree.dart';
 import '../version.dart';
 import '../preset_courses.dart';

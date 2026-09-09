@@ -450,7 +450,9 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                '索引中 ${(_indexProgress * 100).round()}%',
+                _indexingDocTitle != null
+                    ? '${_indexingDocTitle} 索引中 ${(_indexProgress * 100).round()}%'
+                    : '索引中 ${(_indexProgress * 100).round()}%',
                 style: TextStyle(fontSize: 12, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),

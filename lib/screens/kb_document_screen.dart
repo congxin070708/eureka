@@ -91,7 +91,7 @@ class _KbDocumentScreenState extends ConsumerState<KbDocumentScreen>
 
   void _addReadMsg(String role, String text, {bool isAI = true}) {
     setState(() {
-      _readMessages.add(ChatMsg(role: role, text: text, isAI: isAI));
+      _readMessages.add(ChatMsg(emoji: role, text: text, isAI: isAI));
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_readScrollCtrl.hasClients) {
@@ -108,7 +108,7 @@ class _KbDocumentScreenState extends ConsumerState<KbDocumentScreen>
     if (_readMessages.isEmpty) return;
     setState(() {
       _readMessages.last = ChatMsg(
-        role: _readMessages.last.role,
+        emoji: _readMessages.last.emoji,
         text: text,
         isAI: _readMessages.last.isAI,
       );
@@ -207,8 +207,8 @@ $chunkContent
 
     try {
       final result = await ApiService.chat(
-        Prompts.knowledgeGuideSystem,
         prompt,
+        systemPrompt: EurekaPrompts.knowledgeGuideSystem,
       );
       if (!result.success) {
         _updateLastRead('❌ AI 讲解失败：${result.error}');
@@ -286,8 +286,8 @@ $chunkContent
 
       try {
         final llmResult = await ApiService.chat(
-          Prompts.knowledgeGuideSystem,
           prompt,
+          systemPrompt: EurekaPrompts.knowledgeGuideSystem,
         );
         if (llmResult.success) {
           final data = ApiService.parseJson(llmResult);
@@ -365,7 +365,7 @@ $chunkContent
 
   void _addRagMsg(String role, String text, {bool isAI = true, List<KbSearchResult>? refs}) {
     setState(() {
-      _ragMessages.add(ChatMsg(role: role, text: text, isAI: isAI));
+      _ragMessages.add(ChatMsg(emoji: role, text: text, isAI: isAI));
       _ragReferences.add(refs ?? []);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -383,7 +383,7 @@ $chunkContent
     if (_ragMessages.isEmpty) return;
     setState(() {
       _ragMessages.last = ChatMsg(
-        role: _ragMessages.last.role,
+        emoji: _ragMessages.last.emoji,
         text: text,
         isAI: _ragMessages.last.isAI,
       );
@@ -446,8 +446,8 @@ $context
 
       // 3) 调用 AI 回答
       final result = await ApiService.chat(
-        Prompts.knowledgeQaSystem,
         prompt,
+        systemPrompt: EurekaPrompts.knowledgeQaSystem,
       );
 
       if (!result.success) {
@@ -547,7 +547,7 @@ $context
             itemCount: _readMessages.length,
             itemBuilder: (_, i) {
               final msg = _readMessages[i];
-              return ChatBubble(msg: msg);
+              return ChatBubble(msg: msg, index: i);
             },
           ),
         ),
@@ -609,7 +609,7 @@ $context
                   itemCount: _ragMessages.length,
                   itemBuilder: (_, i) {
                     final msg = _ragMessages[i];
-                    return ChatBubble(msg: msg);
+                    return ChatBubble(msg: msg, index: i);
                   },
                 ),
         ),
