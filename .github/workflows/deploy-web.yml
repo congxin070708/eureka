@@ -42,7 +42,16 @@ jobs:
         run: flutter pub get
 
       - name: Build Web
-        run: flutter build web --release --base-href "/eureka/"
+        run: flutter build web --release --base-href "/eureka/app/"
+
+      - name: Arrange demo as home, app under /app/
+        run: |
+          mkdir -p build/web/app
+          cd build/web
+          find . -mindepth 1 -maxdepth 1 ! -name app -exec mv {} app/ \;
+          cd ../..
+          cp docs/index.html build/web/index.html
+          ls -la build/web/ build/web/app/ | head -30
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
