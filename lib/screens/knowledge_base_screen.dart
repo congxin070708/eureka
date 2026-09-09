@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:pdf_text/pdf_text.dart';
 import '../app_theme.dart';
 import '../knowledge_base_service.dart';
 import '../api_service.dart';
@@ -64,7 +63,7 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
-        'pdf', 'txt', 'md',
+        'txt', 'md',
         'dart', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'h',
         'go', 'rs', 'rb', 'php', 'swift', 'kt',
         'html', 'css', 'json', 'yaml', 'yml',
@@ -88,15 +87,14 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     try {
       String content;
       if (ext == 'pdf') {
-        // PDF 解析
-        if (file.bytes != null) {
-          final pdfDoc = await PDFText.fromBytes(file.bytes!);
-          content = pdfDoc.text;
-        } else {
-          throw Exception('PDF 文件读取失败');
-        }
+        throw Exception(
+            '暂不支持 PDF 直接导入，请将 PDF 转为 TXT 或 MD 格式后再上传');
       } else {
-        content = utf8.decode(file.bytes ?? []);
+        try {
+          content = utf8.decode(file.bytes ?? []);
+        } catch (e) {
+          throw Exception('文件编码不支持（仅支持 UTF-8 编码的文本文件）');
+        }
       }
 
       if (content.trim().isEmpty) {
@@ -452,7 +450,9 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                '索引中 ${(_indexProgress * 100).round()}%',
+                _indexingDocTitle != null
+                    ? '${_indexingDocTitle} 索引中 ${(_indexProgress * 100).round()}%'
+                    : '索引中 ${(_indexProgress * 100).round()}%',
                 style: TextStyle(fontSize: 12, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),

@@ -4,12 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../study_engine.dart';
 import '../api_service.dart';
 import '../app_theme.dart';
-import '../secure_storage_service.dart';
 import '../review_scheduler.dart';
-import '../data_export_service.dart';
-import '../notification_service.dart';
 import '../providers/app_providers.dart';
-import '../widgets/api_key_guide_sheet.dart';
 import 'learn_screen.dart';
 import 'stats_screen.dart';
 import 'skill_tree_screen.dart';
@@ -17,6 +13,8 @@ import 'gacha_screen.dart';
 import 'file_learning_screen.dart';
 import 'subject_launch_screen.dart';
 import 'knowledge_base_screen.dart';
+import 'settings_screen.dart';
+import 'profile_screen.dart';
 import '../skill_tree.dart';
 import '../version.dart';
 import '../preset_courses.dart';
@@ -241,11 +239,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ).then((_) => _saveEngineSync());
             },
           ),
+          // ── 个人中心 ──
+          IconButton(
+            icon: Icon(Icons.person_outline, color: AppTheme.textSecondary, size: 22),
+            tooltip: '个人中心',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+          ),
           // ── 设置按钮 ──
           IconButton(
             icon: Icon(Icons.settings, color: AppTheme.textSecondary, size: 20),
             tooltip: '设置',
-            onPressed: () => _showSettings(context),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
           ),
           // ── 主题切换 ──
           IconButton(
@@ -1091,170 +1105,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(themeProvider.notifier).toggle();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('dark_theme', AppTheme.isDark);
-  }
-
-  void _showSettings(BuildContext context) {
-    final controller = TextEditingController(text: ApiService.apiKey);
-    bool notifEnabled = true;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: AppTheme.surfaceLight,
-          title: Text('设置', style: TextStyle(color: AppTheme.textPrimary)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── API Key 入口 ──
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => ApiKeyGuideSheet(
-                      controller: controller,
-                      onSaved: (baseUrl) async {
-                        ApiService.apiKey = controller.text.trim();
-                        ApiService.customBaseUrl = baseUrl;
-                        final keyOk = await SecureStorageService.saveApiKey(ApiService.apiKey);
-                        final urlOk = await SecureStorageService.saveBaseUrl(baseUrl);
-                        ApiService.clearDetectionCache();
-                        if (context.mounted) Navigator.pop(context);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(keyOk && urlOk
-                                  ? '✅ API Key 已保存'
-                                  : '⚠️ 保存失败，请检查系统存储权限'),
-                              backgroundColor: keyOk && urlOk
-                                  ? AppTheme.taskDone
-                                  : Colors.orange,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      onClosed: () => Navigator.pop(context),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.key, size: 22, color: Color(0xFFf97316)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'API Key 设置',
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              ApiService.apiKey.isEmpty
-                                  ? '还没设置，点击配置'
-                                  : '已配置 · ${_backendHint(ApiService.apiKey)}',
-                              style: TextStyle(
-                                  fontSize: 12, color: AppTheme.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: AppTheme.textSecondary, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // ── 数据管理 ──
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final engine = ref.read(studyEngineProvider);
-                        await DataExportService.exportData(engine);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                      },
-                      icon: const Icon(Icons.upload, size: 16),
-                      label: const Text('导出数据', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final imported = await DataExportService.importData();
-                        if (imported != null) {
-                          ref.read(studyEngineProvider).replaceEngine(imported);
-                          await ref.read(studyEngineProvider).save();
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                          }
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('导入失败,请检查文件'),
-                              backgroundColor: Color(0xFFef4444),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.download, size: 16),
-                      label: const Text('导入数据', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                title: Text('复习提醒', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
-                subtitle: Text('每天20:00提醒复习到期知识点', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                value: notifEnabled,
-                onChanged: (val) async {
-                  setDialogState(() => notifEnabled = val);
-                  if (val) {
-                    await NotificationService.requestPermissions();
-                    await NotificationService.scheduleDailyReviewReminder();
-                  } else {
-                    await NotificationService.cancelAll();
-                  }
-                },
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('完成', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static String _backendHint(String key) {
-    final k = key.trim();
-    if (k.startsWith('sk-sp-')) return '🔮 识别为百炼 Qwen（TokenPlan）';
-    if (k.startsWith('sk-proj-')) return '⚡ 识别为 OpenAI（GPT）';
-    if (k.startsWith('sk-')) return '🔑 识别为 DeepSeek 官方';
-    return '💡 填入 API Key，自动识别后端';
   }
 }
 
