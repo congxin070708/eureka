@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../app_theme.dart';
 import '../knowledge_base_service.dart';
 import '../api_service.dart';
@@ -48,6 +49,20 @@ class _KbDocumentScreenState extends ConsumerState<KbDocumentScreen>
   bool _ragLoading = false;
   final List<List<KbSearchResult>> _ragReferences = []; // 每条回答对应的引用
 
+  // ── 阅读进度持久化 ──
+
+  String get _progressKey => 'kb_read_progress_${widget.docId}';
+
+  Future<void> _saveReadProgress(int chunkIndex) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_progressKey, chunkIndex);
+  }
+
+  Future<int> _loadReadProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_progressKey) ?? 0;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -68,20 +83,28 @@ class _KbDocumentScreenState extends ConsumerState<KbDocumentScreen>
   Future<void> _loadDoc() async {
     setState(() => _loading = true);
     final doc = await KnowledgeBaseService.getDocument(widget.docId);
+    final savedChunk = await _loadReadProgress();
     setState(() {
       _doc = doc;
       _totalChunks = doc?.totalChunks ?? 0;
+      _currentChunk = savedChunk;
       _loading = false;
     });
     if (doc != null) {
       // 初始化引导式阅读
-      _addReadMsg('📚', '文档加载完成：**${doc.title}**\n\n'
-          '共 ${doc.totalChunks} 段，我们一段一段来理解。\n\n'
-          '每段流程：\n'
-          '1️⃣ AI 讲解这段内容\n'
-          '2️⃣ 出思考题，你用自己的话回答\n'
-          '3️⃣ AI 评分和反馈\n\n'
-          '准备好了就发送「开始」或点击下方按钮。');
+      if (savedChunk > 0 && savedChunk < doc.totalChunks) {
+        _addReadMsg('📚', '欢迎回来！\n\n'
+            '上次学到第 $savedChunk / ${doc.totalChunks} 段。\n\n'
+            '发送「继续」从上次的位置开始，或「从头开始」重新学习。');
+      } else {
+        _addReadMsg('📚', '文档加载完成：**${doc.title}**\n\n'
+            '共 ${doc.totalChunks} 段，我们一段一段来理解。\n\n'
+            '每段流程：\n'
+            '1️⃣ AI 讲解这段内容\n'
+            '2️⃣ 出思考题，你用自己的话回答\n'
+            '3️⃣ AI 评分和反馈\n\n'
+            '准备好了就发送「开始」或点击下方按钮。');
+      }
     }
   }
 
@@ -153,7 +176,7 @@ class _KbDocumentScreenState extends ConsumerState<KbDocumentScreen>
     _readLoading = true;
     setState(() {});
 
-    // 获取当前切片内容
+    // 获取当前切片内容（按序号直接读取，不走检索）
     final doc = _doc;
     if (doc == null) {
       _readLoading = false;
@@ -161,19 +184,14 @@ class _KbDocumentScreenState extends ConsumerState<KbDocumentScreen>
       return;
     }
 
-    // 从数据库读取切片内容
-    final results = await KnowledgeBaseService.search(
-      '第${_currentChunk + 1}段',
-      docIds: [doc.id!],
-      topK: 1,
+    final chunk = await KnowledgeBaseService.getChunkByIndex(
+      doc.id!,
+      _currentChunk,
     );
-    String chunkContent = '';
-    if (results.isNotEmpty) {
-      chunkContent = results.first.chunk.content;
-    }
+    final chunkContent = chunk?.content ?? '';
 
     if (chunkContent.isEmpty) {
-      _addReadMsg('❌', '无法获取文档内容');
+      _addReadMsg('❌', '无法获取第 ${_currentChunk + 1} 段内容');
       _readLoading = false;
       setState(() {});
       return;
@@ -342,6 +360,7 @@ $chunkContent
   void _nextChunk() {
     if (_currentChunk < _totalChunks - 1) {
       _currentChunk++;
+      _saveReadProgress(_currentChunk);
       _readingAnswering = false;
       _readingQuestion = '';
       _readingKeys = [];
@@ -352,6 +371,7 @@ $chunkContent
   void _prevChunk() {
     if (_currentChunk > 0) {
       _currentChunk--;
+      _saveReadProgress(_currentChunk);
       _readingAnswering = false;
       _readingQuestion = '';
       _readingKeys = [];

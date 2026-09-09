@@ -30,10 +30,63 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
   double _indexProgress = 0;
   bool _indexing = false;
 
+  // 搜索状态
+  final _searchCtrl = TextEditingController();
+  bool _isSearching = false;
+  bool _searchLoading = false;
+  List<KbSearchResult> _searchResults = [];
+  String? _searchError;
+
   @override
   void initState() {
     super.initState();
     _loadDocs();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _doSearch(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+        _searchError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _searchLoading = true;
+      _searchError = null;
+    });
+
+    try {
+      final results = await KnowledgeBaseService.search(q, topK: 10);
+      setState(() {
+        _searchResults = results;
+        _searchLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _searchError = e.toString();
+        _searchLoading = false;
+      });
+    }
+  }
+
+  void _closeSearch() {
+    _searchCtrl.clear();
+    setState(() {
+      _isSearching = false;
+      _searchResults = [];
+      _searchError = null;
+    });
   }
 
   Future<void> _loadDocs() async {
@@ -54,6 +107,9 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
       });
     }
   }
+
+  // 文件大小限制：10MB
+  static const int _maxFileSize = 10 * 1024 * 1024;
 
   Future<void> _uploadFile() async {
     if (ApiService.apiKey.isEmpty) {
@@ -77,7 +133,21 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
 
     final file = result.files.first;
     final fileName = file.name;
+    final fileSize = file.size;
     final ext = fileName.split('.').last.toLowerCase();
+
+    // 文件大小检查
+    if (fileSize > _maxFileSize) {
+      final sizeMb = (fileSize / 1024 / 1024).toStringAsFixed(1);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('文件过大（${sizeMb}MB），目前支持最大 10MB'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _indexing = true;
@@ -88,19 +158,44 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     try {
       String content;
       if (ext == 'pdf') {
-        // PDF 解析
-        if (file.bytes != null) {
+        if (file.bytes == null || file.bytes!.isEmpty) {
+          throw Exception('PDF 文件读取失败，文件可能已损坏');
+        }
+        try {
           final pdfDoc = await PDFText.fromBytes(file.bytes!);
           content = pdfDoc.text;
-        } else {
-          throw Exception('PDF 文件读取失败');
+          if (content.trim().isEmpty) {
+            throw Exception('PDF 中没有可提取的文本（可能是扫描件或图片型 PDF）');
+          }
+        } catch (e) {
+          if (e.toString().contains('可提取')) rethrow;
+          throw Exception('PDF 解析失败：$e');
         }
       } else {
-        content = utf8.decode(file.bytes ?? []);
+        try {
+          content = utf8.decode(file.bytes ?? []);
+        } catch (e) {
+          throw Exception('文件编码不支持（仅支持 UTF-8 编码的文本文件）');
+        }
       }
 
       if (content.trim().isEmpty) {
         throw Exception('文件内容为空');
+      }
+
+      // 内容过长提示（超过 5 万字可能索引很慢）
+      if (content.length > 50000) {
+        final estimateMin = (content.length / 500 * 1.5 / 60).ceil();
+        _showLargeFileWarning(content.length, estimateMin);
+        // 等待用户确认
+        final confirmed = await _waitForLargeFileConfirm();
+        if (!confirmed) {
+          setState(() {
+            _indexing = false;
+            _indexingDocTitle = null;
+          });
+          return;
+        }
       }
 
       await KnowledgeBaseService.addDocument(
@@ -154,6 +249,133 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     );
   }
 
+  bool _largeFileConfirmed = false;
+
+  void _showLargeFileWarning(int charCount, int estimateMin) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text('文件较大', style: TextStyle(color: AppTheme.textPrimary)),
+          ],
+        ),
+        content: Text(
+          '文档约 ${(charCount / 10000).toStringAsFixed(1)} 万字，'
+          '预计需要 $estimateMin 分钟完成索引。\n\n'
+          '索引过程中请保持 App 在前台，'
+          '期间可以切换到其他页面，但不要关闭 App。',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _largeFileConfirmed = false;
+              Navigator.pop(context);
+            },
+            child: Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              _largeFileConfirmed = true;
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: AppTheme.accent.withValues(alpha: 0.1),
+            ),
+            child: Text('继续索引', style: TextStyle(color: AppTheme.accent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _waitForLargeFileConfirm() async {
+    _largeFileConfirmed = false;
+    // 等待对话框关闭
+    await Future.delayed(const Duration(milliseconds: 300));
+    int maxWait = 600; // 最多等 60 秒
+    while (maxWait > 0) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      maxWait--;
+      // 检查对话框是否已关闭（通过 mounted 和变量）
+      if (!mounted) return false;
+      if (_largeFileConfirmed) return true;
+      // 如果对话框已经被取消（进度重置了），返回 false
+      if (!_indexing) return false;
+    }
+    return false;
+  }
+
+  // ── 导入示例文档 ──
+
+  Future<void> _importSample() async {
+    if (ApiService.apiKey.isEmpty) {
+      _showNoApiKeyDialog();
+      return;
+    }
+
+    // 检查是否已导入
+    final hasSample = await KnowledgeBaseService.hasSampleDocument();
+    if (hasSample) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('示例文档已导入过了'),
+          backgroundColor: AppTheme.textSecondary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _indexing = true;
+      _indexingDocTitle = '网络著作权法概论';
+      _indexProgress = 0;
+    });
+
+    try {
+      await KnowledgeBaseService.importSampleDocument(
+        onProgress: (embedded, total) {
+          setState(() {
+            _indexProgress = total == 0 ? 0 : embedded / total;
+          });
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('示例文档导入成功！'),
+            backgroundColor: AppTheme.accent,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      _loadDocs();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导入失败：$e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _indexing = false;
+        _indexingDocTitle = null;
+        _indexProgress = 0;
+      });
+    }
+  }
+
   Future<void> _deleteDoc(KbDocument doc) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -205,9 +427,36 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.bg,
         elevation: 0,
-        title: Text('知识库', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        title: _isSearching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: _doSearch,
+                style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: '搜索知识库...',
+                  hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+                  border: InputBorder.none,
+                ),
+                textInputAction: TextInputAction.search,
+              )
+            : Text('知识库', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
         centerTitle: false,
         actions: [
+          if (!_isSearching)
+            IconButton(
+              icon: Icon(Icons.search, color: AppTheme.textPrimary),
+              onPressed: () {
+                setState(() => _isSearching = true);
+              },
+              tooltip: '搜索',
+            ),
+          if (_isSearching)
+            IconButton(
+              icon: Icon(Icons.close, color: AppTheme.textPrimary),
+              onPressed: _closeSearch,
+              tooltip: '关闭',
+            ),
           IconButton(
             icon: Icon(Icons.add, color: AppTheme.accent),
             onPressed: _indexing ? null : _uploadFile,
@@ -225,6 +474,11 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
   }
 
   Widget _buildBody() {
+    // 搜索模式
+    if (_isSearching) {
+      return _buildSearchResults();
+    }
+
     if (_loading) {
       return Center(
         child: CircularProgressIndicator(color: AppTheme.accent),
@@ -293,12 +547,161 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
               icon: const Icon(Icons.upload_file),
               label: const Text('上传文档'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _importSample,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.accent,
+                side: BorderSide(color: AppTheme.accent.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+              icon: const Icon(Icons.auto_stories, size: 18),
+              label: const Text('导入示例文档'),
+            ),
             const SizedBox(height: 16),
             Text(
               '支持 PDF、TXT、Markdown、代码文件',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppTheme.accent),
+            const SizedBox(height: 12),
+            Text('正在检索...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    if (_searchError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondary),
+              const SizedBox(height: 12),
+              Text('检索失败', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+              const SizedBox(height: 8),
+              Text(_searchError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.7), fontSize: 12)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search_off, size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+              const SizedBox(height: 12),
+              Text('没有找到相关内容', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+              const SizedBox(height: 8),
+              Text('试试其他关键词，或上传更多文档',
+                  style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.7), fontSize: 12)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: _searchResults.length,
+      itemBuilder: (_, i) => _buildSearchResultCard(_searchResults[i]),
+    );
+  }
+
+  Widget _buildSearchResultCard(KbSearchResult result) {
+    final scorePct = (result.score * 100).round();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => KbDocumentScreen(
+                  docId: result.chunk.docId,
+                  docTitle: result.docTitle,
+                ),
+              ),
+            ).then((_) => _loadDocs());
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 文档名 + 相关度
+                Row(
+                  children: [
+                    Icon(Icons.description, size: 16, color: AppTheme.accent),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        result.docTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: AppTheme.accent, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$scorePct% 相关',
+                        style: TextStyle(fontSize: 11, color: AppTheme.accent, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // 内容摘要
+                Text(
+                  result.chunk.content.length > 120
+                      ? '${result.chunk.content.substring(0, 120)}...'
+                      : result.chunk.content,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.5),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '第 ${result.chunk.index + 1} 段',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
