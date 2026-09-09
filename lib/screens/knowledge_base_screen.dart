@@ -1,10 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:pdf_text/pdf_text.dart';
 import '../app_theme.dart';
 import '../knowledge_base_service.dart';
 import '../api_service.dart';
@@ -66,7 +63,7 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
-        'pdf', 'txt', 'md',
+        'txt', 'md',
         'dart', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'h',
         'go', 'rs', 'rb', 'php', 'swift', 'kt',
         'html', 'css', 'json', 'yaml', 'yml',
@@ -90,31 +87,8 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     try {
       String content;
       if (ext == 'pdf') {
-        // PDF 解析：PDFDoc 不支持 fromBytes，需写入临时文件
-        if (file.bytes == null || file.bytes!.isEmpty) {
-          throw Exception('PDF 文件读取失败，文件可能已损坏');
-        }
-        File? tempFile;
-        try {
-          final tempDir = await getTemporaryDirectory();
-          tempFile = File(
-              '${tempDir.path}/kb_temp_${DateTime.now().millisecondsSinceEpoch}.pdf');
-          await tempFile.writeAsBytes(file.bytes!);
-          final pdfDoc = await PDFDoc.fromFile(tempFile);
-          content = await pdfDoc.text;
-          if (content.trim().isEmpty) {
-            throw Exception('PDF 中没有可提取的文本（可能是扫描件或图片型 PDF）');
-          }
-        } catch (e) {
-          if (e.toString().contains('可提取')) rethrow;
-          throw Exception('PDF 解析失败：$e');
-        } finally {
-          if (tempFile != null) {
-            try {
-              await tempFile.delete();
-            } catch (_) {}
-          }
-        }
+        throw Exception(
+            '暂不支持 PDF 直接导入，请将 PDF 转为 TXT 或 MD 格式后再上传');
       } else {
         try {
           content = utf8.decode(file.bytes ?? []);
