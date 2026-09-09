@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 /// 统一文件内容提取：把各种格式的文件转成纯文本。
 ///
@@ -37,12 +37,10 @@ class FileContentExtractor {
     final doc = await PdfDocument.openData(bytes);
     try {
       final buf = StringBuffer();
-      for (var i = 1; i <= doc.pagesCount; i++) {
-        final page = await doc.getPage(i);
-        try {
-          buf.writeln(await page.loadText());
-        } finally {
-          page.dispose();
+      for (final page in doc.pages) {
+        final raw = await page.loadText();
+        if (raw != null) {
+          buf.writeln(raw.fullText);
         }
       }
       final text = buf.toString().trim();
@@ -51,7 +49,7 @@ class FileContentExtractor {
       }
       return text;
     } finally {
-      doc.dispose();
+      await doc.dispose();
     }
   }
 
