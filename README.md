@@ -2,10 +2,13 @@
 
 > 让知识真正掌握在你脑中 —— AI 驱动的学习强化训练系统
 
+👉 **在线体验（无需安装）**：https://congxin070708.github.io/eureka/
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![version](https://img.shields.io/badge/version-v1.2.0-5b4bd5)](https://github.com/congxin070708/eureka/releases)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions)](https://github.com/congxin070708/eureka/actions)
+[![在线体验](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C-%E7%82%B9%E5%87%BB%E6%89%93%E5%BC%80-5b4bd5?style=for-the-badge&logo=githubpages)](https://congxin070708.github.io/eureka/)
 
 Eureka（尤里卡）是一款基于 **掌握度门控 + 遗忘曲线复习 + 游戏化激励** 的 AI 学习强化训练应用。
 不只是"学过"，而是真正"学会"。
@@ -93,10 +96,10 @@ flutter build apk --release
 flutter build web --release
 ```
 
-### 方式三：在线体验
+### 方式三：在线体验（无需安装，浏览器直接打开）
 
-- **产品官网（演示站）**：<https://congxin070708.github.io/eureka/>
-- **Flutter Web 版**：自行构建后部署
+- **完整 Web 版（与 App 功能一致）**：<https://congxin070708.github.io/eureka/>
+- 已配置 GitHub Pages 自动部署：push 到 master 即自动构建发布
 
 ---
 
@@ -105,6 +108,8 @@ flutter build web --release
 ### 方式一：Flutter Web 完整 App
 
 同一套 Flutter 代码编译为 Web，功能与移动端完全一致。
+
+**线上已部署**：<https://congxin070708.github.io/eureka/>（master 分支更新后由 GitHub Actions 自动构建发布）
 
 ```bash
 # 构建（CanvasKit 渲染，推荐桌面端）
