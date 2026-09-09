@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,7 +77,6 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
 
     final file = result.files.first;
     final fileName = file.name;
-    final ext = fileName.split('.').last.toLowerCase();
 
     setState(() {
       _indexing = true;
