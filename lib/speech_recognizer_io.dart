@@ -1,7 +1,8 @@
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'speech_recognizer.dart';
 
 /// 语音识别 - IO 实现（真实 speech_to_text 插件）
-class SpeechRecognizerImpl {
+class SpeechRecognizerImpl implements SpeechRecognizer {
   late final stt.SpeechToText _speech = stt.SpeechToText();
 
   Future<bool> initialize() => _speech.initialize();
