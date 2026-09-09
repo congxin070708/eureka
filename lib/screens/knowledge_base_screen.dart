@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf_text/pdf_text.dart';
 import '../app_theme.dart';
 import '../knowledge_base_service.dart';
@@ -88,15 +90,37 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     try {
       String content;
       if (ext == 'pdf') {
-        // PDF 解析
-        if (file.bytes != null) {
-          final pdfDoc = await PDFText.fromBytes(file.bytes!);
-          content = pdfDoc.text;
-        } else {
-          throw Exception('PDF 文件读取失败');
+        // PDF 解析：PDFDoc 不支持 fromBytes，需写入临时文件
+        if (file.bytes == null || file.bytes!.isEmpty) {
+          throw Exception('PDF 文件读取失败，文件可能已损坏');
+        }
+        File? tempFile;
+        try {
+          final tempDir = await getTemporaryDirectory();
+          tempFile = File(
+              '${tempDir.path}/kb_temp_${DateTime.now().millisecondsSinceEpoch}.pdf');
+          await tempFile.writeAsBytes(file.bytes!);
+          final pdfDoc = await PDFDoc.fromFile(tempFile);
+          content = await pdfDoc.text;
+          if (content.trim().isEmpty) {
+            throw Exception('PDF 中没有可提取的文本（可能是扫描件或图片型 PDF）');
+          }
+        } catch (e) {
+          if (e.toString().contains('可提取')) rethrow;
+          throw Exception('PDF 解析失败：$e');
+        } finally {
+          if (tempFile != null) {
+            try {
+              await tempFile.delete();
+            } catch (_) {}
+          }
         }
       } else {
-        content = utf8.decode(file.bytes ?? []);
+        try {
+          content = utf8.decode(file.bytes ?? []);
+        } catch (e) {
+          throw Exception('文件编码不支持（仅支持 UTF-8 编码的文本文件）');
+        }
       }
 
       if (content.trim().isEmpty) {
