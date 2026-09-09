@@ -6,6 +6,7 @@ import '../app_theme.dart';
 import '../knowledge_base_service.dart';
 import '../api_service.dart';
 import 'kb_document_screen.dart';
+import '../file_content_extractor.dart';
 
 /// 知识库首页
 ///
@@ -63,7 +64,7 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
-        'txt', 'md',
+        'txt', 'md', 'pdf', 'docx', 'xlsx', 'pptx',
         'dart', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'h',
         'go', 'rs', 'rb', 'php', 'swift', 'kt',
         'html', 'css', 'json', 'yaml', 'yml',
@@ -86,15 +87,11 @@ class _KnowledgeBaseScreenState extends ConsumerState<KnowledgeBaseScreen> {
 
     try {
       String content;
-      if (ext == 'pdf') {
-        throw Exception(
-            '暂不支持 PDF 直接导入，请将 PDF 转为 TXT 或 MD 格式后再上传');
-      } else {
-        try {
-          content = utf8.decode(file.bytes ?? []);
-        } catch (e) {
-          throw Exception('文件编码不支持（仅支持 UTF-8 编码的文本文件）');
-        }
+      try {
+        content = await FileContentExtractor.extractFromBytes(
+            fileName, file.bytes ?? Uint8List(0));
+      } catch (e) {
+        throw Exception('文件解析失败：$e');
       }
 
       if (content.trim().isEmpty) {
