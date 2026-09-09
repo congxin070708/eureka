@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import '../app_theme.dart';
 import '../api_service.dart';
 import '../file_learning_service.dart';
+import '../file_content_extractor.dart';
 import '../widgets/chat_bubble.dart';
 
 /// 文件学习页面 - 逐段理解代码/文档
@@ -44,6 +46,7 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
         'go', 'rs', 'rb', 'php', 'swift', 'kt',
         'html', 'css', 'json', 'yaml', 'yml',
         'txt', 'md', 'sh', 'sql',
+        'pdf', 'docx', 'xlsx', 'pptx',
       ],
       withData: true,
     );
@@ -51,8 +54,20 @@ class _FileLearningScreenState extends ConsumerState<FileLearningScreen> {
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
-    final content = utf8.decode(file.bytes ?? []);
     final fileName = file.name;
+    late final String content;
+    try {
+      content = await FileContentExtractor.extractFromBytes(
+          fileName, file.bytes ?? Uint8List(0));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('文件解析失败：$e'),
+              backgroundColor: Colors.red, duration: const Duration(seconds: 3)),
+        );
+      }
+      return;
+    }
 
     setState(() {
       _loading = true;
