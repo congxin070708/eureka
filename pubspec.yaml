@@ -23,7 +23,6 @@ dependencies:
   flutter_riverpod: ^2.5.1
   sqflite: ^2.3.0
   path: ^1.9.0
-  pdf_text: ^0.11.0
   vector_math: ^2.1.4
 
 dev_dependencies:
