@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../speech_recognizer.dart';
 import '../api_service.dart';
 import '../app_theme.dart';
 import '../file_storage_service.dart';
@@ -57,7 +57,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
   int _presetStep = 0;
 
   // 语音识别
-  late stt.SpeechToText _speech;
+  late dynamic _speech;  // SpeechRecognizerImpl (IO/Web 条件实现)
   bool _isListening = false;
 
   // 防抖保存
@@ -66,7 +66,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
+    _speech = SpeechRecognizer.create();
     setState(() => _messages.add(ChatMsg(emoji: '⏳', text: '初始化中...', isAI: true)));
     _loadMessages();
   }
@@ -1012,16 +1012,9 @@ ${EurekaPrompts.bossGradingPrompt}''';
     }
     setState(() => _isListening = true);
     _speech.listen(
-      onResult: (result) {
-        _inputController.text = result.recognizedWords;
+      onResult: (text) {
+        _inputController.text = text;
       },
-      listenOptions: stt.SpeechListenOptions(
-        listenFor: const Duration(seconds: 10),
-        pauseFor: const Duration(seconds: 3),
-        partialResults: true,
-        cancelOnError: true,
-        listenMode: stt.ListenMode.confirmation,
-      ),
     );
   }
 
